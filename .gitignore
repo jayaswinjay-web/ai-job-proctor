@@ -6,6 +6,12 @@
 *.key
 secrets/
 
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
 # ---- Dependencies & builds ----
 node_modules/
 dist/

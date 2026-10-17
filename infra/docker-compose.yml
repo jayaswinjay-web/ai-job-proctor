@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  # Self-hosted LiveKit Server (WebRTC real-time backbone).
+  # Ports: 7880 websocket, 7881 rtc tcp, 7882 rtc udp.
+  # NOTE: postgres mapped to 5433 so it does not clash with the existing
+  # proctor-postgres stack on 5432.
+  livekit:
+    image: livekitio/livekit-server:latest   # verify exact version/pin before prod
+    command: [--config, /etc/livekit/livekit.yaml]
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit/livekit.yaml:ro
+    depends_on:
+      - redis
+      - postgres
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: livekit
+      POSTGRES_PASSWORD: livekit
+      POSTGRES_DB: livekit
+    ports:
+      - "5433:5432"
+    volumes:
+      - livekit-pgdata:/var/lib/postgresql/data
+
+volumes:
+  livekit-pgdata:

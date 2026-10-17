@@ -1,0 +1,10 @@
+# Agent worker runtime dependencies.
+# NOTE: verify exact versions against package registries before pinning (prompt stack rule).
+# Install once versions are confirmed:
+#   pip install -r agent/requirements.txt
+livekit-agents~=1.9
+silero-vad~=4.0
+openai~=1.40
+python-dotenv~=1.0
+redis~=5.0
+psycopg2-binary~=2.9
