@@ -1,0 +1,47 @@
+name: ai-job-proctor
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: proctor-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: proctor
+      POSTGRES_PASSWORD: proctor_dev_password
+      POSTGRES_DB: proctor
+      # C collation keeps index behaviour predictable across hosts.
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=en-US --encoding=UTF8'
+    ports:
+      - '5432:5432'
+    volumes:
+      - proctor-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U proctor -d proctor']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Optional MinIO for S3-compatible media storage. Use when STORAGE_DRIVER=s3.
+  minio:
+    image: minio/minio:latest
+    container_name: proctor-minio
+    restart: unless-stopped
+    profiles: ['storage']
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: proctor_minio
+      MINIO_ROOT_PASSWORD: proctor_minio_secret
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - proctor-minio:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  proctor-pgdata:
+  proctor-minio:

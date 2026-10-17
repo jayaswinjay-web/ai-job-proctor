@@ -1,0 +1,38 @@
+# ---- Secrets: never commit a populated .env ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ---- Dependencies & builds ----
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.vite/
+
+# ---- Local data ----
+.storage/
+uploads/
+tmp/
+*.log
+logs/
+
+# ---- Test output ----
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# ---- Prisma ----
+packages/database/prisma/*.db
+packages/database/prisma/migrations/dev/
+
+# ---- Editors / OS ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,45 @@
+# VoiceHire API container image for Cloudflare Containers.
+#
+# The build context is the repository root because the API consumes its workspace
+# packages (@proctor/config, database, types, ai, speech) through npm workspaces
+# junctions — those manifests must exist for `npm ci` to resolve them.
+#
+# The app is TypeScript-first and has no build step (`npm start` is broken: tsup
+# emits `./dotenv.js` against sources that are `dotenv.ts`), so the container runs
+# the same tsx entrypoint that `npm run dev` uses.
+
+# syntax=docker/dockerfile:1
+
+ARG NODE_VERSION=22
+FROM node:${NODE_VERSION}-slim AS base
+
+# openssl is required by the Prisma query engine on Debian; ca-certificates is
+# required for the outbound HTTPS the API makes (LiveKit inference gateway, Neon).
+RUN apt-get update -qq \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/*
+
+FROM base AS build
+WORKDIR /app
+
+# Everything is copied before `npm ci` because the workspace layout (root manifest,
+# packages/*, apps/*) must be complete for the lockfile to resolve.
+COPY . .
+
+RUN npm ci --no-audit --no-fund \
+  && npx prisma generate --schema packages/database/prisma/schema.prisma
+
+FROM base AS runtime
+WORKDIR /app
+COPY --from=build /app /app
+
+ENV NODE_ENV=production
+ENV API_HOST=0.0.0.0
+ENV API_PORT=8080
+ENV LOG_LEVEL=info
+
+# The API listens on 8080 inside the container; Cloudflare routes Worker requests to
+# that port through `ctx.container.getTcpPort(8080)`.
+EXPOSE 8080
+
+CMD ["node", "node_modules/tsx/dist/cli.mjs", "apps/api/src/server.ts"]

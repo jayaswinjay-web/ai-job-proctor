@@ -1,0 +1,29 @@
+{
+  "name": "@proctor/database",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "db:generate": "node ../../scripts/prisma.mjs generate --schema prisma/schema.prisma",
+    "db:migrate": "node ../../scripts/prisma.mjs migrate deploy --schema prisma/schema.prisma",
+    "db:migrate:dev": "node ../../scripts/prisma.mjs migrate dev --schema prisma/schema.prisma",
+    "db:push": "node ../../scripts/prisma.mjs db push --schema prisma/schema.prisma",
+    "db:reset": "node ../../scripts/prisma.mjs migrate reset --force --skip-seed --schema prisma/schema.prisma",
+    "db:studio": "node ../../scripts/prisma.mjs studio --schema prisma/schema.prisma",
+    "db:validate": "node ../../scripts/prisma.mjs validate --schema prisma/schema.prisma",
+    "db:status": "node ../../scripts/prisma.mjs migrate status --schema prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@prisma/adapter-neon": "^6.19.3",
+    "@prisma/client": "^6.1.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.1.0"
+  }
+}

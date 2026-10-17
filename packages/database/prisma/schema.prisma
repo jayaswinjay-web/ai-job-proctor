@@ -1,0 +1,956 @@
+// ============================================================================
+// AI Job Screening & Proctoring Platform — relational schema
+// Design rules enforced here:
+//  * UUID identifiers for anything externally reachable
+//  * Soft deletion (deletedAt) instead of destructive deletes
+//  * Every mutable entity carries createdAt/updatedAt for audit reconstruction
+//  * Historical interview records are append-only; edits create new versions
+//  * Protected-characteristic columns are deliberately ABSENT from candidates
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enumerations
+// ---------------------------------------------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  RECRUITER
+  INTERVIEWER
+  REVIEWER
+}
+
+enum JobStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum StageKind {
+  GREETING
+  CONSENT
+  LANGUAGE_SELECTION
+  BASIC_DETAILS
+  ELIGIBILITY_CHECK
+  JOB_QUESTIONS
+  FOLLOW_UP
+  FINAL_REVIEW
+  CLOSING
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionSource {
+  ADMIN
+  AI_SUGGESTED
+}
+
+enum ValidationStatus {
+  UNVALIDATED
+  VALID
+  INVALID
+  NEEDS_TRANSLATION
+}
+
+enum SessionState {
+  CREATED
+  AWAITING_CONSENT
+  AWAITING_LANGUAGE
+  BASIC_DETAILS
+  ELIGIBILITY_CHECK
+  JOB_QUESTIONS
+  FOLLOW_UP
+  FINAL_REVIEW
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+  EXPIRED
+}
+
+enum Recommendation {
+  STRONG_MATCH
+  GOOD_MATCH
+  CONSIDER
+  NOT_RECOMMENDED
+  PENDING_REVIEW
+}
+
+enum ReviewState {
+  NOT_STARTED
+  IN_PROGRESS
+  REVIEWED
+}
+
+enum DecisionSource {
+  AI
+  HUMAN_REVIEWED
+  HUMAN_OVERRIDDEN
+}
+
+enum ProctorEventType {
+  CANDIDATE_LEFT_KIOSK
+  MULTIPLE_PEOPLE_DETECTED
+  FACING_AWAY
+  MIC_DISCONNECTED
+  CAMERA_DISCONNECTED
+  CAMERA_UNAVAILABLE
+  TAB_CHANGED
+  WINDOW_BLURRED
+  NETWORK_INTERRUPTED
+  UNUSUAL_INTERRUPTION
+  FULLSCREEN_EXITED
+}
+
+enum Severity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FollowUpTrigger {
+  ALWAYS
+  IF_POSITIVE
+  IF_NEGATIVE
+  IF_SHORT
+  MANUAL
+}
+
+enum FollowUpMode {
+  DISABLED
+  LIMITED
+  ALLOWED
+}
+
+enum RecordingKind {
+  ANSWER
+  FULL_SESSION
+}
+
+enum ImportStatus {
+  PENDING
+  VALIDATED
+  FAILED
+  APPLIED
+}
+
+enum ProctorLevel {
+  DISABLED
+  BASIC
+  STANDARD
+  ENHANCED
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+// ---------------------------------------------------------------------------
+// Identity & access
+// ---------------------------------------------------------------------------
+
+model AdminRole {
+  id           String  @id @default(uuid()) @db.Uuid
+  role         Role    @unique
+  /// Permission strings from the shared PERMISSIONS union. Editable by Super Admin.
+  permissions  String[]
+  description  String  @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  users UserRole[]
+}
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  email           String     @unique
+  name            String
+  /// Argon2id hash. Never leaves the server.
+  passwordHash    String
+  status          UserStatus @default(ACTIVE)
+  /// TOTP shared secret, base32. Null until 2FA is enabled.
+  totpSecret      String?
+  totpEnabled     Boolean    @default(false)
+  failedLoginCount Int       @default(0)
+  lockedUntil     DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  roles        UserRole[]
+  refreshTokens RefreshToken[]
+  auditLogs    AuditLog[]
+  answerScores AnswerScore[]
+  reviewerNotes ReviewerNote[]
+  jobEdits     Job[]             @relation("JobCreatedBy")
+  questionEdits Question[]        @relation("QuestionCreatedBy")
+  approvals    Question[]        @relation("QuestionApprovedBy")
+  settingsChanges SystemSetting[] @relation("SettingChangedBy")
+
+  @@index([status])
+  @@map("users")
+}
+
+model UserRole {
+  userId    String    @db.Uuid
+  roleId    String    @db.Uuid
+  createdAt DateTime  @default(now())
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role AdminRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  /// SHA-256 of the opaque token. The plaintext exists only in the client cookie.
+  tokenHash String    @unique
+  userAgent String?
+  ipHash    String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Languages
+// ---------------------------------------------------------------------------
+
+model Language {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique
+  name         String
+  nativeName   String
+  enabled      Boolean  @default(true)
+  ttsVoiceHint String?
+  sttLocale    String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  jobPreferences      JobPreferredLanguage[]
+  questionTranslations QuestionTranslation[]
+  sessions            InterviewSession[]
+
+  @@map("languages")
+}
+
+model JobPreferredLanguage {
+  jobId      String @db.Uuid
+  languageId String @db.Uuid
+
+  job      Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@id([jobId, languageId])
+  @@map("job_preferred_languages")
+}
+
+// ---------------------------------------------------------------------------
+// Jobs
+// ---------------------------------------------------------------------------
+
+model Job {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String
+  description String    @default("")
+  location    String    @default("")
+  department  String    @default("")
+
+  minExperienceYears  Float  @default(0)
+  requiredSkills      String[] @default([])
+  eligibilityCriteria String[] @default([])
+
+  interviewDurationMinutes Int    @default(15)
+  passingScore             Float  @default(60)
+
+  /// Category → weight map. Only job-competence dimensions live here.
+  weights Json @default("{}")
+
+  proctoring Json @default("{}")
+
+  status JobStatus @default(DRAFT)
+
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  createdBy    User?             @relation("JobCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  languages    JobPreferredLanguage[]
+  stages       InterviewStage[]
+  questions    Question[]
+  requirements JobRequirement[]
+  sessions     InterviewSession[]
+  imports      QuestionImport[]
+
+  @@index([status, deletedAt])
+  @@index([title])
+  @@map("jobs")
+}
+
+model InterviewStage {
+  id            String    @id @default(uuid()) @db.Uuid
+  jobId         String    @db.Uuid
+  kind          StageKind
+  title         String
+  instructions  String    @default("")
+  maxQuestions  Int       @default(3)
+  weight        Float     @default(0)
+  sortOrder     Int       @default(0)
+  /// Which curriculum bucket supplies questions for this stage.
+  categoryPool  String[]  @default([])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  job      Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@index([jobId, sortOrder])
+  @@map("interview_stages")
+}
+
+model JobRequirement {
+  id               String   @id @default(uuid()) @db.Uuid
+  jobId            String   @db.Uuid
+  skillTag         String
+  description      String   @default("")
+  minimumLevel     Float    @default(0)
+  isKnockout       Boolean  @default(false)
+  knockoutMessage  String?
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, sortOrder])
+  @@map("job_requirements")
+}
+
+model QuestionCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String   @default("")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  questions Question[]
+
+  @@map("question_categories")
+}
+
+// ---------------------------------------------------------------------------
+// Questions (versioned, translatable)
+// ---------------------------------------------------------------------------
+
+model Question {
+  id         String  @id @default(uuid()) @db.Uuid
+  jobId      String? @db.Uuid
+  stageId    String? @db.Uuid
+  categoryId String? @db.Uuid
+
+  categoryName String
+  difficulty   Difficulty      @default(EASY)
+  baseLanguage String         @default("en")
+
+  text                     String
+  speakText                String?
+  expectedAnswerGuidance   String  @default("")
+  evaluationInstructions   String  @default("")
+  keywords                 String[] @default([])
+  skillTags                String[] @default([])
+
+  weight   Float @default(10)
+  scoreMax Float @default(10)
+  scoreMin Float @default(0)
+
+  isRequired       Boolean  @default(true)
+  isKnockout       Boolean  @default(false)
+  knockoutMessage  String?
+  maxRetries       Int      @default(2)
+  timeLimitSeconds Int?
+
+  sortOrder Int            @default(0)
+  source    QuestionSource @default(ADMIN)
+
+  isActive         Boolean          @default(true)
+  validationStatus ValidationStatus @default(UNVALIDATED)
+  validationIssues String[]         @default([])
+
+  version      Int      @default(1)
+  approvedAt   DateTime?
+  approvedById String?  @db.Uuid
+
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  job         Job?                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stage       InterviewStage?        @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  category    QuestionCategory?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy   User?                  @relation("QuestionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy  User?                  @relation("QuestionApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  translations QuestionTranslation[]
+  versions     QuestionVersion[]
+  scoringCriteria ScoringCriterion[]
+  followUpRules   FollowUpRule[]
+  answers          CandidateAnswer[]
+  answerScores     AnswerScore[]
+
+  @@index([jobId, stageId, sortOrder])
+  @@index([jobId, isActive])
+  @@index([validationStatus])
+  @@map("questions")
+}
+
+model QuestionTranslation {
+  id           String   @id @default(uuid()) @db.Uuid
+  questionId   String   @db.Uuid
+  languageId   String   @db.Uuid
+  text         String
+  speakText    String?
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, languageId])
+  @@index([languageId])
+  @@map("question_translations")
+}
+
+/// Immutable full snapshot of a question at the moment it was asked.
+model QuestionVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @db.Uuid
+  version    Int
+  snapshot   Json
+  changeNote String?
+  createdById String? @db.Uuid
+  createdAt  DateTime @default(now())
+
+  question Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  CandidateAnswer[]
+
+  @@unique([questionId, version])
+  @@index([questionId])
+  @@map("question_versions")
+}
+
+model ScoringCriterion {
+  id                String  @id @default(uuid()) @db.Uuid
+  questionId        String  @db.Uuid
+  label             String
+  description       String  @default("")
+  points            Float   @default(0)
+  keywords          String[] @default([])
+  isKnockout        Boolean @default(false)
+  knockoutMessage   String?
+  sortOrder         Int     @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  question  Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  scores    AnswerCriterionScore[]
+
+  @@index([questionId, sortOrder])
+  @@map("scoring_criteria")
+}
+
+model FollowUpRule {
+  id         String          @id @default(uuid()) @db.Uuid
+  questionId String          @db.Uuid
+  /// Spoken follow-up text. Named `questionText` in the database so it does not
+  /// collide with the `parent` relation; the API exposes it as `question`.
+  questionText String
+  trigger    FollowUpTrigger @default(MANUAL)
+  maxUses    Int             @default(1)
+  weight     Float           @default(0)
+  sortOrder  Int             @default(0)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  parent    Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  generated FollowUpQuestion[]
+
+  @@index([questionId, sortOrder])
+  @@map("follow_up_rules")
+}
+
+// ---------------------------------------------------------------------------
+// Candidates & interview sessions
+// ---------------------------------------------------------------------------
+
+/// NOTE: no gender / religion / caste / disability / photo / face-embedding columns.
+/// Only what the interview genuinely needs to record a person's spoken answers.
+model Candidate {
+  id              String   @id @default(uuid()) @db.Uuid
+  publicId        String   @unique
+  name            String?
+  age             Int?
+  village         String?
+  previousWork    String?
+  yearsExperience Float?
+  workPreference  String?
+  canTravel       Boolean?
+  phone           String?
+  /// Free-form structured extras captured during BASIC_DETAILS (e.g. shift preference).
+  extraDetails    Json     @default("{}")
+  languageCode    String   @default("en")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  sessions InterviewSession[]
+
+  @@index([name])
+  @@index([createdAt])
+  @@map("candidates")
+}
+
+model InterviewSession {
+  id       String        @id @default(uuid()) @db.Uuid
+  publicId String        @unique
+  candidateId String     @db.Uuid
+  jobId    String        @db.Uuid
+  kioskId  String        @default("default")
+
+  /// Visible interview stage (maps to the StageKind enum).
+  stageKind     StageKind    @default(BASIC_DETAILS)
+  /// Lifecycle position in the interview state machine.
+  sessionState  SessionState @default(CREATED)
+  sessionStatus SessionStatus @default(ACTIVE)
+
+  languageCode  String  @default("en")
+  /// FK to Language for referential integrity; languageCode stays denormalised
+  /// so historical sessions survive a language being retired.
+  languageId    String? @db.Uuid
+
+  consentRecorded Boolean  @default(false)
+  consentText     String?
+  consentAt       DateTime?
+
+  /// Immutable settings snapshot: everything the engine needs to reproduce the run.
+  settingsSnapshot Json @default("{}")
+  /// Resumable engine state machine cursor.
+  engineState      Json @default("{}")
+  /// Ordered, human-readable audit of what happened and when.
+  timeline         Json @default("[]")
+
+  questionIndex   Int        @default(0)
+  totalQuestions  Int        @default(0)
+
+  /// Server-side authoritative clock for timeouts.
+  lastActivityAt  DateTime @default(now())
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  durationSeconds Int?
+
+  isDemo  Boolean  @default(false)
+  isLocked Boolean  @default(false)
+  /// Set when a knockout requirement excluded the candidate.
+  knockoutTriggered Boolean  @default(false)
+  knockoutReason    String?
+
+  /// ---- Voice transport (LiveKit Cloud thin-client architecture) -----------
+  /// Which pipeline carried the interview audio: "livekit" or "browser".
+  voiceTransport      String  @default("browser")
+  /// LiveKit Cloud room the kiosk and the cloud voice agent joined.
+  livekitRoomName     String?
+  /// LiveKit room SID, for correlating with the LiveKit dashboard.
+  livekitSessionId    String?
+  /// Identifier of the dispatched cloud voice agent instance for this session.
+  voiceAgentSessionId String?
+  /// When the kiosk last heart-beated its LiveKit connection. Drives live admin status.
+  voiceConnectedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  candidate       Candidate         @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  job             Job               @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  language        Language?         @relation(fields: [languageId], references: [id], onDelete: SetNull)
+  answers         CandidateAnswer[]
+  followUps       FollowUpQuestion[]
+  proctorEvents   ProctoringEvent[]
+  recordings      AudioRecording[]
+  report          EvaluationReport?
+  reviewerNotes   ReviewerNote[]
+  eligibilityResults EligibilityResult[]
+  transcripts     Transcript[]
+
+  @@index([jobId, sessionStatus])
+  @@index([sessionStatus, lastActivityAt])
+  @@index([createdAt])
+  @@index([candidateId])
+  @@index([livekitRoomName])
+  @@map("interview_sessions")
+}
+
+model EligibilityResult {
+  id          String   @id @default(uuid()) @db.Uuid
+  sessionId   String   @db.Uuid
+  requirement String
+  description String   @default("")
+  passed      Boolean  @default(false)
+  isKnockout  Boolean  @default(false)
+  message     String   @default("")
+  createdAt   DateTime @default(now())
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("eligibility_results")
+}
+
+model CandidateAnswer {
+  id        String  @id @default(uuid()) @db.Uuid
+  sessionId String  @db.Uuid
+  questionId String? @db.Uuid
+  /// Pins the exact question content used, so later edits never rewrite history.
+  questionVersionId String? @db.Uuid
+  stageKind StageKind
+
+  /// Verbatim speech-to-text output. Stored separately from any AI interpretation.
+  transcript        String  @default("")
+  /// Structured meaning extracted by the AI (what the AI *understood*).
+  interpretation    String?
+  /// Per-language normalised transcript used for evaluation.
+  normalizedText    String  @default("")
+  spokenLanguage    String?
+  sttConfidence     Float?
+
+  isCommand       Boolean @default(false)
+  command         String?
+  isSkipped       Boolean @default(false)
+  isDontKnow      Boolean @default(false)
+  attemptNumber   Int     @default(1)
+  durationMs      Int?
+
+  answeredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  session   InterviewSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question  Question?         @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  version   QuestionVersion?  @relation(fields: [questionVersionId], references: [id], onDelete: SetNull)
+  score     AnswerScore?
+  followUps FollowUpQuestion[]
+  /// Owned by AudioRecording.answerId; kept here so an answer can reach its audio.
+  recording AudioRecording? @relation("AnswerRecording")
+
+  @@index([sessionId, answeredAt])
+  @@index([questionId])
+  @@map("candidate_answers")
+}
+
+model AnswerScore {
+  id        String  @id @default(uuid()) @db.Uuid
+  answerId  String  @unique @db.Uuid
+  questionId String? @db.Uuid
+
+  rawScore       Float
+  normalizedScore Float
+  maxScore       Float  @default(10)
+  confidence     Float   @default(0)
+  evaluationReason String @default("")
+  strengths      String[] @default([])
+  concerns       String[] @default([])
+  aiNotes        String   @default("")
+  /// Evidence of the guard that keeps protected attributes out of scoring.
+  biasFlags      String[] @default([])
+
+  source           DecisionSource @default(AI)
+  reviewerId       String?        @db.Uuid
+  reviewerComment  String?
+  reviewedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  answer    CandidateAnswer        @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  question  Question?              @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  reviewer  User?                  @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+  criterionScores AnswerCriterionScore[]
+
+  @@index([questionId])
+  @@map("answer_scores")
+}
+
+model AnswerCriterionScore {
+  id             String  @id @default(uuid()) @db.Uuid
+  answerScoreId  String  @db.Uuid
+  criterionId    String? @db.Uuid
+  label          String
+  points         Float   @default(0)
+  maxPoints      Float   @default(0)
+  hitKeywords    String[] @default([])
+  reasoning      String   @default("")
+  createdAt      DateTime @default(now())
+
+  answerScore AnswerScore       @relation(fields: [answerScoreId], references: [id], onDelete: Cascade)
+  criterion   ScoringCriterion? @relation(fields: [criterionId], references: [id], onDelete: SetNull)
+
+  @@index([answerScoreId])
+  @@map("answer_criterion_scores")
+}
+
+model FollowUpQuestion {
+  id          String  @id @default(uuid()) @db.Uuid
+  sessionId   String  @db.Uuid
+  answerId    String  @db.Uuid
+  ruleId      String? @db.Uuid
+  question    String
+  spokenText  String?
+  generatedBy String  @default("ADMIN")
+  isAiGenerated Boolean @default(false)
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answer  CandidateAnswer   @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  rule    FollowUpRule?     @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@map("follow_up_questions")
+}
+
+// ---------------------------------------------------------------------------
+// Transcripts, audio, proctoring
+// ---------------------------------------------------------------------------
+
+model Transcript {
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @db.Uuid
+  answerId       String?  @db.Uuid
+  kind           String   @default("ANSWER")
+  languageCode   String
+  source         String   @default("STT")
+  content        String
+  isRedacted     Boolean  @default(false)
+  redactedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("transcripts")
+}
+
+model AudioRecording {
+  id           String        @id @default(uuid()) @db.Uuid
+  sessionId    String        @db.Uuid
+  answerId     String?       @unique @db.Uuid
+  kind         RecordingKind @default(ANSWER)
+  objectKey    String        @unique
+  contentType  String        @default("audio/webm")
+  durationMs   Int           @default(0)
+  sizeBytes    Int           @default(0)
+  /// Encrypted-at-rest marker; the storage layer applies envelope encryption.
+  encrypted    Boolean       @default(true)
+  consentBasis String        @default("JOB_APPLICATION")
+  /// Timestamp after which a retention job must delete this row and its object.
+  purgeAfter   DateTime?
+  createdAt    DateTime      @default(now())
+  deletedAt    DateTime?
+
+  session      InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// Reverse of CandidateAnswer.audioRecordingId — the recording owns the link.
+  answer       CandidateAnswer? @relation("AnswerRecording", fields: [answerId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([purgeAfter])
+  @@map("audio_recordings")
+}
+
+model ProctoringEvent {
+  id          String            @id @default(uuid()) @db.Uuid
+  sessionId   String            @db.Uuid
+  type        ProctorEventType
+  severity    Severity          @default(INFO)
+  /// Detector confidence. NEVER presented as proof of wrongdoing.
+  confidence  Float             @default(0)
+  description String            @default("")
+  /// e.g. "detector:presence/frame-1420"
+  reference   String?
+  snapshotKey String?
+  stageKind   StageKind?
+  /// False = informational only. A proctoring alert never auto-decides a hire.
+  requiresHumanReview Boolean   @default(false)
+  acknowledged      Boolean     @default(false)
+  acknowledgedById  String?     @db.Uuid
+  acknowledgedAt    DateTime?
+  occurredAt  DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+
+  session  InterviewSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  snapshot ProctoringSnapshot?
+
+  @@index([sessionId, occurredAt])
+  @@index([type, occurredAt])
+  @@index([requiresHumanReview])
+  @@map("proctoring_events")
+}
+
+model ProctoringSnapshot {
+  id        String   @id @default(uuid()) @db.Uuid
+  eventId   String   @unique @db.Uuid
+  objectKey String
+  width     Int      @default(0)
+  height    Int      @default(0)
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  event ProctoringEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("proctoring_snapshots")
+}
+
+// ---------------------------------------------------------------------------
+// Reports & review
+// ---------------------------------------------------------------------------
+
+model EvaluationReport {
+  id          String         @id @default(uuid()) @db.Uuid
+  sessionId   String         @unique @db.Uuid
+  overallScore Float
+  maxScore    Float          @default(100)
+  recommendation Recommendation @default(PENDING_REVIEW)
+  decisionSource DecisionSource @default(AI)
+
+  summary             String @default("")
+  experienceSummary   String @default("")
+  eligibilityStatus   String @default("")
+  skillScores         Json   @default("[]")
+  strengths           String[] @default([])
+  weaknesses          String[] @default([])
+  concerns            String[] @default([])
+  recommendedNextAction String @default("")
+  /// Machine-readable reasoning so an admin can see exactly how the number arose.
+  methodology          String @default("")
+  generatedAt         DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([recommendation])
+  @@map("evaluation_reports")
+}
+
+model ReviewerNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @db.Uuid
+  authorId  String   @db.Uuid
+  note      String
+  decision  String?
+  createdAt DateTime @default(now())
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  author  User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("reviewer_notes")
+}
+
+// ---------------------------------------------------------------------------
+// Settings, imports, audit
+// ---------------------------------------------------------------------------
+
+model SystemSetting {
+  id           String   @id @default(uuid()) @db.Uuid
+  scope        String   @default("global")
+  /// Arbitrary nested object, validated against the shared zod schema on read/write.
+  payload      Json
+  version      Int      @default(1)
+  changedById  String?  @db.Uuid
+  changedAt    DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  changedBy User? @relation("SettingChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@unique([scope])
+  @@map("system_settings")
+}
+
+model QuestionImport {
+  id          String       @id @default(uuid()) @db.Uuid
+  jobId       String       @db.Uuid
+  format      String
+  status      ImportStatus @default(PENDING)
+  totalRows   Int          @default(0)
+  validRows   Int          @default(0)
+  errorRows   Int          @default(0)
+  errors      Json         @default("[]")
+  createdQuestionIds String[] @default([])
+  createdById String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  appliedAt   DateTime?
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+  @@map("question_imports")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?
+  /// Redacted old/new values. Never contains secrets or full transcripts.
+  previous   Json?
+  next       Json?
+  ipHash     String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@map("audit_logs")
+}

@@ -1,0 +1,30 @@
+# Host dependencies are installed inside the image, so the local tree never needs to be
+# uploaded as Docker build context (this is the single largest part of the context).
+node_modules
+**/node_modules
+
+# Build outputs are regenerated inside the image.
+dist
+**/dist
+
+# Local environment and secrets must never enter the image; the container receives them
+# at runtime through the Durable Object's `container.start({ env })`.
+.env
+.env.*
+!.env.example
+
+# Local interview media, logs and scratch files.
+*.log
+coverage
+.tmp
+.cache
+
+# Version control and editor noise.
+.git
+.gitignore
+.idea
+.vscode
+
+# Test artefacts are not needed at runtime.
+**/*.test.ts
+**/*.spec.ts

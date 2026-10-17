@@ -1,0 +1,21 @@
+{
+  "name": "@proctor/ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts",
+    "./guardrails": "./src/guardrails.ts",
+    "./providers/llm": "./src/providers/llm.ts",
+    "./providers/stt": "./src/providers/stt.ts",
+    "./providers/tts": "./src/providers/tts.ts",
+    "./providers/evaluation": "./src/providers/evaluation.ts"
+  },
+  "dependencies": {
+    "livekit-server-sdk": "^2.19.1",
+    "zod": "^3.24.1"
+  }
+}

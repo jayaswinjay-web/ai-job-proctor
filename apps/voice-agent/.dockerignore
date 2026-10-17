@@ -1,0 +1,22 @@
+# Local dependencies are rebuilt inside the image
+node_modules
+
+# Secrets must never be baked into the image; the agent receives them as
+# LiveKit agent secrets (VOICEHIRE_API_URL, AGENT_API_KEY, LIVEKIT_*, VOICE_*)
+.env
+.env.local
+
+# Logs and scratch files
+*.log
+.tmp
+.cache
+
+# Git and editor noise
+.git
+.gitignore
+.idea
+.vscode
+
+# Tests and docs are not needed in the runtime image
+tests
+README.md

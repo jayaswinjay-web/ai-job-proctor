@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "voicehire-api",
+  "main": "./index.ts",
+  "compatibility_date": "2026-10-11",
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./www",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api", "/api/*", "/healthz"]
+  },
+  "containers": [
+    {
+      "class_name": "ApiContainer",
+      "scheduling_policy": "durable_object",
+      "images": {
+        "base": {
+          "dockerfile": "./Dockerfile.api",
+          // The API is an npm workspace member, so the image must be built from the repo
+          // root rather than from cloud/.
+          "build_context": ".."
+        }
+      }
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "BACKEND", "class_name": "ApiContainer" }]
+  },
+  "exports": {
+    "ApiContainer": { "type": "durable-object", "storage": "sqlite" }
+  }
+}

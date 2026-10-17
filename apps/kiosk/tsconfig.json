@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"],
+    "noEmit": true
+  },
+  "include": ["src/**/*"],
+  "//": "vite.config.ts is excluded: the Vite plugin's own types come from a different Vite copy than the app resolves, and checking it produces a false plugin-type clash that has nothing to do with this codebase.",
+  "exclude": ["node_modules", "dist"]
+}

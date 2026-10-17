@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#16202c" />
+    <meta name="referrer" content="same-origin" />
+    <!--
+      `frame-ancestors` is deliberately absent: browsers ignore it in a meta tag, and
+      including it only produces a console warning on every page load. Clickjacking is
+      blocked by the `X-Frame-Options: DENY` header the API sets on every response.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' ws: wss: http://localhost:4000 ws://localhost:4000; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%231c5fa8' d='M12 2 4 5v7c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5z'/%3E%3C/svg%3E" />
+    <title>Recruitment Admin</title>
+    <script type="module" crossorigin src="/assets/index-CVLK2loV.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/react-SUdvaFI6.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-0WMA_t6u.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DPzEltna.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>The recruitment dashboard requires JavaScript. Please enable it or use the API directly.</noscript>
+  </body>
+</html>

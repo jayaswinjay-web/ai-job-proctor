@@ -1,0 +1,47 @@
+{
+  "name": "@proctor/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsup src/server.ts --format esm --target node20 --out-dir dist --sourcemap --clean --silent",
+    "typecheck": "tsc -p ../../tsconfig.json --noEmit",
+    "db:generate": "npm run db:generate -w @proctor/database",
+    "db:migrate": "npm run db:migrate -w @proctor/database",
+    "db:reset": "npm run db:reset -w @proctor/database",
+    "db:seed": "tsx src/run-seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run tests/e2e"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^10.0.1",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/multipart": "^9.0.1",
+    "@fastify/rate-limit": "^10.1.1",
+    "@fastify/static": "^8.0.3",
+    "@fastify/websocket": "^11.0.1",
+    "@node-rs/argon2": "^2.0.2",
+    "@proctor/ai": "*",
+    "@proctor/config": "*",
+    "@proctor/database": "*",
+    "@proctor/speech": "*",
+    "@proctor/types": "*",
+    "@prisma/client": "^6.1.0",
+    "fastify": "^5.2.0",
+    "jose": "^5.9.6",
+    "nanoid": "^5.0.9",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13",
+    "puppeteer-core": "^23.11.1",
+    "tsx": "^4.19.2",
+    "tsup": "^8.3.5",
+    "vitest": "^2.1.8"
+  }
+}

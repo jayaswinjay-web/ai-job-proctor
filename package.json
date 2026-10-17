@@ -1,0 +1,53 @@
+{
+  "name": "ai-job-proctor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Voice-first kiosk AI job screening and proctoring platform for low-literacy candidates",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "build": "npm run build:api && npm run build:kiosk && npm run build:admin",
+    "build:api": "npm run build -w @proctor/api",
+    "build:kiosk": "npm run build -w @proctor/kiosk",
+    "build:admin": "npm run build -w @proctor/admin",
+    "clean": "node scripts/clean.mjs",
+    "typecheck": "npm run typecheck:packages && npm run typecheck:workspaces",
+    "typecheck:packages": "tsc -p tsconfig.json --pretty",
+    "typecheck:workspaces": "npm run typecheck -w @proctor/api && npm run typecheck -w @proctor/kiosk && npm run typecheck -w @proctor/admin && npm run typecheck -w @proctor/voice-agent",
+    "verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1",
+    "probe:admin": "node scripts/probe-admin.mjs",
+    "smoke:admin": "node scripts/smoke-admin.mjs",
+    "smoke:kiosk": "node scripts/smoke-kiosk.mjs",
+    "smoke": "npm run smoke:kiosk && npm run smoke:admin",
+    "dev:api": "npm run dev -w @proctor/api",
+    "dev:kiosk": "npm run dev -w @proctor/kiosk",
+    "dev:admin": "npm run dev -w @proctor/admin",
+    "dev:face": "python scripts/face-presence.py",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:generate": "npm run db:generate -w @proctor/api",
+    "db:migrate": "npm run db:migrate -w @proctor/api",
+    "db:reset": "npm run db:reset -w @proctor/api",
+    "db:seed": "npm run db:seed -w @proctor/api --",
+    "bootstrap": "npm run db:generate && npm run db:migrate && npm run db:seed",
+    "test": "npm run test -w @proctor/api",
+    "test:watch": "npm run test:watch -w @proctor/api",
+    "test:e2e": "npm run test:e2e -w @proctor/api",
+    "build:cloud-assets": "node scripts/build-cloud-assets.mjs",
+    "deploy:cloud": "npm run build:kiosk && npm run build:admin && npm run build:cloud-assets && cd cloud && npx wrangler deploy",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "db:seed:reset": "npm run db:seed -w @proctor/api -- --reset-admin-password"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.149.0"
+  }
+}

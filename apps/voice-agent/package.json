@@ -1,0 +1,26 @@
+{
+  "name": "@proctor/voice-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "VoiceHire cloud voice agent (LiveKit Cloud). Runs remotely - never on the kiosk.",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts dev",
+    "start": "tsx src/index.ts start",
+    "download-files": "tsx src/index.ts download-files",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@livekit/agents": "1.9.1",
+    "@livekit/rtc-node": "^1.1.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}
