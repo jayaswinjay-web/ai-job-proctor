@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 1 — LiveKit Web Client</title>
+<script type="importmap">
+{
+  "imports": {
+    "livekit-client": "https://unpkg.com/livekit-client@2.22.3/dist/index.es.mjs"
+  }
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; padding: 24px; background: #0b0c10; color: #e2e8f0; }
+  h2 { margin-top: 0; }
+  .card { background: #111827; border: 1px solid #334155; border-radius: 8px; padding: 16px; max-width: 700px; }
+  .status { margin: 10px 0; padding: 10px; background: #0f172a; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow-wrap: break-word; }
+  .connected { color: #4ade80; }
+  .disconnected { color: #f87171; }
+  .warn { color: #fbbf24; }
+  button { padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 6px; border: none; }
+  .mic-off { background: #2563eb; color: white; }
+  .mic-on { background: #dc2626; color: white; }
+  .hint { color: #94a3b8; font-size: 13px; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h2>Phase 1 — LiveKit Web Client</h2>
+    <div class="status" id="log">initializing…</div>
+    <button id="mic" class="mic-off">Enable Mic</button>
+    <div class="hint" id="hint">Join room <code>proctor-phase1</code> on <code>ws://localhost:7880</code> (self-hosted LiveKit). Click Enable Mic to publish audio.</div>
+  </div>
+<script type="module">
+import { createRoom, LocalAudioTrack, AccessToken } from "livekit-client";
+
+const room = createRoom();
+const $log = document.getElementById('log');
+const $mic = document.getElementById('mic');
+const $hint = document.getElementById('hint');
+
+function log(cls, msg) {
+  const line = document.createElement('div');
+  line.className = cls || '';
+  line.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  $log.appendChild(line);
+  $log.scrollTop = $log.scrollHeight;
+  console.log(msg);
+}
+
+function createToken() {
+  const at = new AccessToken('devkey', 'devsecret', { identity: 'web-client', name: 'web-client' });
+  at.addGrant({ room: 'proctor-phase1', roomJoin: true, canPublish: true, canSubscribe: true });
+  return at.toJwt();
+}
+
+async function main() {
+  log('connecting to ws://localhost:7880 …');
+  try {
+    await room.connect('ws://localhost:7880', createToken());
+    log('connected', 'connected — room=' + room.name + ' identity=' + room.localParticipant.identity);
+    $mic.disabled = false;
+  } catch (err) {
+    log('disconnected', 'CONNECT ERROR: ' + (err && err.message ? err.message : String(err)));
+    return;
+  }
+
+  room.on('participantConnected', (p) => log('', 'remote participant joined: ' + p.identity));
+  room.on('participantDisconnected', (p) => log('', 'remote participant left: ' + p.identity));
+  room.on('disconnected', () => log('disconnected', 'DISCONNECTED from room'));
+  room.on('reconnecting', () => log('warn', 'reconnecting…'));
+  room.on('reconnected', () => log('connected', 'reconnected'));
+
+  let micEnabled = false;
+  $mic.onclick = async () => {
+    if (!micEnabled) {
+      try {
+        const track = await LocalAudioTrack.create();
+        await room.localParticipant.publishTrack(track);
+        micEnabled = true;
+        $mic.textContent = 'Disable Mic';
+        $mic.className = 'mic-on';
+        log('', 'mic published');
+      } catch (err) {
+        log('disconnected', 'mic error: ' + (err && err.message ? err.message : String(err)));
+      }
+    } else {
+      for (const [, pub] of room.localParticipant.getTracks()) {
+        if (pub.track) {
+          await room.localParticipant.unpublishTrack(pub.track);
+          log('', 'mic unpublished');
+        }
+      }
+      micEnabled = false;
+      $mic.textContent = 'Enable Mic';
+      $mic.className = 'mic-off';
+    }
+  };
+
+  room.on('trackPublished', (pub, participant) => {
+    log('', 'track published: ' + pub.kind + ' by ' + participant.identity);
+    if (pub.track && pub.track.kind === 'audio' && participant.identity !== room.localParticipant.identity) {
+      pub.track.subscribe();
+      log('', 'subscribed to remote audio');
+    }
+  });
+  room.on('trackSubscribed', (track, pub, participant) => {
+    log('', 'track subscribed: ' + track.kind + ' from ' + participant.identity);
+  });
+  room.on('trackUnpublished', (pub, participant) => {
+    log('', 'track unpublished: ' + pub.kind + ' by ' + participant.identity);
+  });
+}
+
+main().catch((err) => {
+  log('disconnected', 'FATAL: ' + (err && err.message ? err.message : String(err)));
+  console.error(err);
+});
+</script>
+</body>
+</html>

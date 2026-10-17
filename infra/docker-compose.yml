@@ -6,7 +6,7 @@ services:
   # NOTE: postgres mapped to 5433 so it does not clash with the existing
   # proctor-postgres stack on 5432.
   livekit:
-    image: livekitio/livekit-server:latest   # verify exact version/pin before prod
+    image: livekit/livekit-server:latest   # verify exact version/pin before prod
     command: [--config, /etc/livekit/livekit.yaml]
     ports:
       - "7880:7880"

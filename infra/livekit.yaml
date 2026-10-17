@@ -1,17 +1,11 @@
-# livekit.yaml — dev configuration for the self-hosted LiveKit Server.
-# Verify keys/version against the pinned livekit-server image before production.
+# livekit.yaml — dev configuration for livekit/livekit-server.
+# Fields match pkg/config.Config (port, rtc, keys[map], redis, development).
+port: 7880
 rtc:
   tcp_port: 7881
   udp_port: 7882
-  port_range_start: 50000
-  port_range_end: 60000
-websocket:
-  port: 7880
 keys:
-  - api_key: devkey
-    api_secret: devsecret
+  devkey: devsecret
 redis:
   address: redis:6379
-sql:
-  driver: postgres
-  datasource: "postgresql://livekit:livekit@postgres:5432/livekit?sslmode=disable"
+development: true
