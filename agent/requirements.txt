@@ -1,10 +1,9 @@
-# Agent worker runtime dependencies.
-# livekit-agents ~=1.9 requires Python <3.14; this machine runs Python 3.14.2,
-# so we pin the 2.0 beta which ships cp314 wheels. Beta — pin to an exact release
-# before production (see docs/DECISIONS.md).
-livekit-agents==2.0.0b1
-livekit-plugins-openai
-livekit-plugins-silero
-python-dotenv~=1.0
-redis~=5.0
-psycopg2-binary~=2.9
+# Agent worker runtime dependencies (verified with Python 3.12).
+# Python 3.12: livekit-agents==1.8.8, plugins==1.8.8 (agents 1.x stack).
+# Python 3.14 (if needed): only agents 2.0.0b1 available; plugins missing.
+livekit-agents==1.8.8
+livekit-plugins-openai==1.8.8
+livekit-plugins-silero==1.8.8
+python-dotenv==1.2.4
+redis==8.1.0
+psycopg2-binary==2.9.13

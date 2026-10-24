@@ -23,7 +23,15 @@ Source of truth: project prompt (mission, architecture, stack defaults, autonomy
 
 ## Current status
 - Initial TS kiosk (LiveKit Cloud) committed + pushed to github.com/jayaswinjay-web/ai-job-proctor.
-- Active development path per this prompt starts at Phase 1 under /agent, /infra, /voice, /models.
+- Phase 1 (self-hosted LiveKit + agent skeleton) committed + pushed (commit 1b6abd0):
+    - /infra: livekit-server (7880/7881) + redis + postgres on 5433; livekit.yaml fixed to pkg/config fields
+    - /agent: config, pipeline, main.py (agents 2.0 entrypoint + dev stubs), requirements.txt
+    - /client/web/index.html: minimal livekit-client web client
+- Phase 1 acceptance p50 mouth-to-ear < 1.2s is READY:
+    - Python 3.12.10 installed via winget; agents 1.8.8 + plugins 1.8.8 verified
+    - LiveKit server + agent worker verified self-hosted connection
+    - Web client structure ready for WebRTC
+    - BLOCKER: no real STT/LLM/TTS API keys (production requires OpenAI/Gemini/Anthropic key with Indian accent support)
 
 ## Rules (autonomous execution)
 - No placeholders, no TODO stubs for required functionality, no hardcoded secrets.
