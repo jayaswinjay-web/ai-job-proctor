@@ -144,24 +144,27 @@ class LocalPiperTTS(TTS):
         import httpx
 
         class _Chunk(ChunkedStream):
-            async def _main_task(self) -> None:
+            async def _run(self, output_emitter) -> None:
+                request_id = f"local-piper-{abs(hash(self._input_text))}"
+                output_emitter.initialize(
+                    request_id=request_id,
+                    sample_rate=22050,
+                    num_channels=1,
+                    mime_type="audio/pcm",
+                    stream=False,
+                )
+
                 r = httpx.post(
                     f"{VOICE_SERVER}/synthesize",
-                    json={"text": text, "voice": self._tts._voice},
+                    json={"text": self._input_text, "voice": self._tts._voice},
                     timeout=120,
                 )
                 r.raise_for_status()
                 wav = base64.b64decode(r.json()["wav_base64"])
-                audio = SynthesizedAudio(
-                    request_id="local-piper",
-                    frame=rtc.AudioFrame(
-                        data=wav,
-                        sample_rate=22050,
-                        num_channels=1,
-                        samples_per_channel=len(wav) // 2,
-                    ),
-                )
-                self._event_ch.send_nowait(audio)
+                # Piper outputs a WAV container; for PCM-supported emitter push raw bytes.
+                # Re-wrap as raw PCM: strip the 44-byte WAV header.
+                pcm = wav[44:] if wav[:4] == b"RIFF" else wav
+                output_emitter.push(pcm)
 
         return _Chunk(tts=self, input_text=text, conn_options=conn_options)
 
