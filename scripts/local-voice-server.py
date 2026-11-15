@@ -142,22 +142,32 @@ class Handler(BaseHTTPRequestHandler):
         if not audio_b64:
             self._error(400, "audio_base64 required")
             return
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            tmp.write(base64.b64decode(audio_b64))
-            tmp_path = tmp.name
+        raw = base64.b64decode(audio_b64)
+        model = get_whisper()
         try:
-            model = get_whisper()
-            segments, _ = model.transcribe(tmp_path, beam_size=1, vad_filter=True)
-            text = " ".join(s.text for s in segments).strip()
+            # Detect RIFF container vs raw int16 PCM (16kHz mono).
+            if raw[:4] == b"RIFF" and b"WAVE" in raw[:12]:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+                    tmp.write(raw)
+                    tmp_path = tmp.name
+                try:
+                    segments, _ = model.transcribe(tmp_path, beam_size=1, vad_filter=True)
+                    text = " ".join(s.text for s in segments).strip()
+                finally:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+            else:
+                # Raw int16 16kHz mono PCM -> float32 normalized array
+                import numpy as np
+                pcm = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+                segments, _ = model.transcribe(pcm, beam_size=1, vad_filter=True)
+                text = " ".join(s.text for s in segments).strip()
             self._json(200, {"text": text})
         except Exception:  # noqa: BLE001
             log.exception("transcribe failed")
             self._error(500, "transcribe failed")
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
 
     def _generate(self, payload: dict) -> None:
         messages = payload.get("messages")
