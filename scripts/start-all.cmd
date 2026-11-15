@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 title AI Job Proctor - Start All
 
-REM One-click start for the whole stack: Postgres, API, kiosk, admin, camera and the voice agent.
+REM One-click start for the whole stack: Postgres, API, kiosk, admin, camera and the local voice agent.
 REM
 REM Everything is detached with `start` so the services survive this window - closing it only
 REM stops nothing. Each service is skipped when it is already answering, so double-clicking
@@ -78,13 +78,13 @@ if errorlevel 1 (
 )
 echo.
 
-echo [6/6] Voice agent (LiveKit Cloud)
-powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode ProcRunning -Match "voice-agent.src.index" >nul 2>&1
+echo [6/6] Voice agent (local LiveKit + Whisper)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode ProcRunning -Match "local-livekit-agent" >nul 2>&1
 if errorlevel 1 (
-  start "proctor-agent" /min cmd /c "npm run dev -w @proctor/voice-agent > agent.log 2>&1"
-  echo       starting - registering with LiveKit Cloud.
+  start "proctor-agent" /min cmd /c "python scripts\local-livekit-agent.py dev > agent.log 2>&1"
+  echo       starting - local Whisper + Tamil LLaMA + Piper agent registering with local LiveKit at ws://localhost:7880
 ) else (
-  echo       already running - registered with LiveKit Cloud.
+  echo       already running - registered with local LiveKit.
 )
 echo.
 
