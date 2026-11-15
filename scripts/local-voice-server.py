@@ -35,6 +35,7 @@ HOST = os.getenv("VOICE_HOST", "127.0.0.1")
 PORT = int(os.getenv("VOICE_PORT", "8095"))
 
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", r"F:\models\faster-whisper-tiny")
+WHISPER_COMPUTE = os.getenv("WHISPER_COMPUTE", "float16")
 LLAMA_GGUF = os.getenv("LLAMA_GGUF", r"F:\models\tamil-llama-7b-base-v0.1-gguf\tamil-llama-7b-base-v0.1-q4_k_m.gguf")
 PIPER_FEMALE = os.getenv("PIPER_FEMALE", r"F:\voice\ta_IN-HemaLatha-medium\ta_IN-HemaLatha-medium.onnx")
 PIPER_MALE = os.getenv("PIPER_MALE", r"F:\voice\ta_IN-ValluvarNeural-medium\ta_IN-ValluvarNeural-medium.onnx")
@@ -52,7 +53,7 @@ def get_whisper():
         log.info("loading whisper from %s", WHISPER_MODEL)
         from faster_whisper import WhisperModel
 
-        _whisper = WhisperModel(WHISPER_MODEL, device="cuda", compute_type="float16")
+        _whisper = WhisperModel(WHISPER_MODEL, device="cuda", compute_type=WHISPER_COMPUTE)
         log.info("whisper loaded")
     return _whisper
 
