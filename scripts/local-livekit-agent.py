@@ -132,8 +132,9 @@ class LocalTamilLLM(LLM):
 # ---------------------------------------------------------------------------
 class LocalPiperTTS(TTS):
     def __init__(self, *, voice: str = "female") -> None:
+        from livekit.agents.tts import TTSCapabilities
         super().__init__(
-            capabilities={},
+            capabilities=TTSCapabilities(streaming=False),
             sample_rate=22050,
             num_channels=1,
         )
