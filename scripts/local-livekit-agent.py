@@ -186,7 +186,12 @@ async def entrypoint(ctx: JobContext) -> None:
         vad=vad,
     )
     await session.start(agent=agent, room=ctx.room)
-    log.info("agent started and waiting")
+    # Speak a greeting so the kiosk (and any candidate voice) hears the agent.
+    await session.say(
+        "வணக்கம்! ராஜபாளையம் மில்ஸ் (ராம்கோ குழுமம்) நேர்காணலுக்கு வரவேற்கிறோம். நான் உங்கள் நேர்காணலை குரல் மூலம் நடத்துவேன். திரையைத் தொட வேண்டிய அவசியம் இல்லை.",
+        allow_interruptions=False,
+    )
+    log.info("agent greeted candidate and waiting")
 
 
 if __name__ == "__main__":
