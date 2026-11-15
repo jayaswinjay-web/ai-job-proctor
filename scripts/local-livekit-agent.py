@@ -149,23 +149,28 @@ class LocalPiperTTS(TTS):
         return _Chunk(tts=self, input_text=text, conn_options=conn_options)
 
 
-def entrypoint(ctx: JobContext) -> None:
-    async def _run() -> None:
-        vad = silero.VAD.load(min_speech_duration=0.3, min_silence_duration=0.55)
-        stt = LocalWhisperSTT(language="ta")
-        llm = LocalTamilLLM()
-        tts = LocalPiperTTS(voice="female")
-        agent = Agent(
-            instructions="You are the interviewer of Rajapalayam Mills (Ramco Group).",
-            vad=vad,
-            stt=stt,
-            llm=llm,
-            tts=tts,
-        )
-        await agent.start(ctx)
-        log.info("agent started and waiting")
-
-    asyncio.run(_run())
+async def entrypoint(ctx: JobContext) -> None:
+    await ctx.connect()
+    vad = silero.VAD.load(min_speech_duration=0.3, min_silence_duration=0.55)
+    stt = LocalWhisperSTT(language="ta")
+    llm = LocalTamilLLM()
+    tts = LocalPiperTTS(voice="female")
+    agent = Agent(
+        instructions="You are the interviewer of Rajapalayam Mills (Ramco Group).",
+        vad=vad,
+        stt=stt,
+        llm=llm,
+        tts=tts,
+    )
+    from livekit.agents import AgentSession
+    session = AgentSession(
+        stt=stt,
+        llm=llm,
+        tts=tts,
+        vad=vad,
+    )
+    await session.start(agent=agent, room=ctx.room)
+    log.info("agent started and waiting")
 
 
 if __name__ == "__main__":
