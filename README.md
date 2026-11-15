@@ -113,6 +113,29 @@ Steps:
 4. Open `http://localhost:5173/` (kiosk) or `http://<LAN-IP>:5173/` from any browser on the same network
 5. No outbound traffic at runtime; internet can be switched off.
 
+### What to expect when you try it (voice)
+
+The local voice agent (`scripts/local-livekit-agent.py`) conducts the interview itself:
+it greets the candidate, asks job and language by voice (scripted Tamil-first copy),
+takes consent, and then works through the backend-driven question plan (BASIC_DETAILS
+-> job questions -> completion) — the same directives the cloud agent used to read.
+
+Notes on quality:
+
+- The interviewer runs entirely locally; there is no LLM "chat" in the voice path —
+  the script and the rules engine drive every line.
+- Turn handling is VAD-based and interruptions are off: candidate audio spoken *while
+  the agent is speaking* is discarded. Stand at the camera, wait for it to finish its
+  line, then answer — same as the intended kiosk behaviour.
+- Local Tamil ASR is the weakest link on current hardware: Whisper tiny/small can
+  mis-hear both the synthetic Piper voice and quiet real speech. If the agent does not
+  seem to be hearing you, speak clearly and wait for the greeting to finish; the
+  scripted flow re-reads the options when an answer is unrecognized.
+- `F:\models\faster-whisper-small` is used instead of tiny when `WHISPER_MODEL` is set
+  (see `.env`). The `large-v3-turbo` upgrade was blocked by the model CDN being
+  unreachable from this network; if your network can reach it, that is the quality
+  upgrade path.
+
 To point **other machines** on your LAN at the kiosk/admin: both dev servers are now
 bound to `0.0.0.0`, so:
 
