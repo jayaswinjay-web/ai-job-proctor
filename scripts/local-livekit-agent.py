@@ -36,36 +36,48 @@ VOICE_SERVER = os.getenv("VOICE_SERVER_URL", "http://127.0.0.1:8095")
 # ---------------------------------------------------------------------------
 class LocalWhisperSTT(STT):
     def __init__(self, *, language: str = "ta") -> None:
-        super().__init__(model="faster-whisper-tiny", provider="local", capabilities={})
+        from livekit.agents.stt import STTCapabilities
+        super().__init__(
+            capabilities=STTCapabilities(
+                streaming=False,
+                interim_results=False,
+                offline_recognize=True,
+            )
+        )
         self._language = language
 
     async def _recognize_impl(
         self,
         buffer,
         *,
-        language: str | None = None,
+        language,
         conn_options,
-    ) -> SpeechEvent:
+    ):
         import httpx
+        from livekit.agents.stt import SpeechData, SpeechEvent, SpeechEventType
+        from livekit.rtc import AudioFrame
 
-        # buffer is a recipes buffer of int16 PCM; base64-encode so we can POST it
-        import struct
+        if hasattr(buffer, "data"):
+            raw = bytes(buffer.data)
+        elif hasattr(buffer, "__iter__"):
+            raw = b"".join(bytes(f.data) for f in buffer)
+        else:
+            raw = bytes(buffer)
 
-        audio_samples = bytes(buffer)
+        base64_audio = base64.b64encode(raw).decode("ascii")
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.post(
                 f"{VOICE_SERVER}/transcribe",
-                json={
-                    "audio_base64": base64.b64encode(audio_samples).decode("ascii"),
-                    "language": self._language,
-                },
+                json={"audio_base64": base64_audio, "language": self._language},
             )
             r.raise_for_status()
             text = r.json().get("text", "")
 
         return SpeechEvent(
-            type="final_transcript",
-            alternatives=[{"text": text}],
+            type=SpeechEventType.FINAL_TRANSCRIPT,
+            alternatives=[
+                SpeechData(text=text, language=self._language, confidence=0.9),
+            ],
         )
 
 
@@ -74,7 +86,7 @@ class LocalWhisperSTT(STT):
 # ---------------------------------------------------------------------------
 class LocalTamilLLM(LLM):
     def __init__(self) -> None:
-        super().__init__(model="tamil-llama-7b-base-v0.1-q4_k_m.gguf", provider="local")
+        super().__init__()
 
     def chat(self, *, chat_ctx: ChatContext, tools=None, conn_options=None, parallel_tool_calls=None, tool_choice=None, extra_kwargs=None):
         import httpx
@@ -120,7 +132,11 @@ class LocalTamilLLM(LLM):
 # ---------------------------------------------------------------------------
 class LocalPiperTTS(TTS):
     def __init__(self, *, voice: str = "female") -> None:
-        super().__init__(model=f"piper-ta_IN-{voice}", provider="local", sample_rate=22050, num_channels=1)
+        super().__init__(
+            capabilities={},
+            sample_rate=22050,
+            num_channels=1,
+        )
         self._voice = voice
 
     def synthesize(self, text: str, *, conn_options=None) -> ChunkedStream:
