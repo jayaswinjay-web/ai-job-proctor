@@ -20,16 +20,20 @@ echo    %CD%
 echo ============================================================
 echo.
 
-echo [1/6] Postgres (Docker)
+echo [1/6] Postgres + LiveKit (Docker)
 call :ensure_docker
 if errorlevel 1 (
-  echo       [!] Skipped Postgres - the API keeps retrying and the kiosk cannot save results.
+  echo       [!] Skipped Docker - the API keeps retrying and voice interviews cannot start.
 ) else (
   echo       bringing the postgres container up
   docker compose up -d postgres
+  echo       bringing the local LiveKit voice stack up
+  docker compose -f infra/docker-compose.yml up -d
   echo       waiting for Postgres on :5432 ...
   powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode WaitPort -Port 5432 -TimeoutSeconds 120 >nul 2>&1
   if errorlevel 1 echo       [!] Postgres never answered on :5432 - see the output above.
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode WaitPort -Port 7880 -TimeoutSeconds 150 >nul 2>&1
+  if errorlevel 1 echo       [!] local LiveKit Server never answered on :7880 - see the output above.
 )
 echo.
 
