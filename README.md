@@ -74,6 +74,39 @@ All configuration lives in `.env` (see `.env.example`, validated on boot by
   `AGENT_API_KEY` (see the voice-architecture doc)
 - **Privacy / retention** — recording, transcript and candidate retention windows
 
+### Fully offline operation (no internet)
+
+The recommended offline setup on this machine is:
+
+```env
+DEMO_MODE=false
+EVALUATION_PROVIDER=rules       # deterministic rubric, no LLM call
+STT_PROVIDER=browser            # kiosk mic is transcribed locally
+TTS_PROVIDER=browser            # kiosk speaks via the local speech synth
+LLM_PROVIDER=livekit            # unused at runtime when evaluation=rules
+VOICE_MODE=livekit
+LIVEKIT_URL=ws://localhost:7880  # local LiveKit Server (docker)
+```
+
+Steps:
+1. `cp .env.example .env` and set `EVALUATION_PROVIDER=rules`
+2. `npm run db:up`
+3. Double-click `AI Job Proctor.lnk` → services boot
+4. Open `http://localhost:5173/` (kiosk) or `http://<LAN-IP>:5173/` from any browser on the same network
+5. The local voice agent and whisper/Tamil-LLaMA/Piper run entirely on the machine
+   — no outbound traffic after boot (except Docker image pulls).
+
+To point **other machines** on your LAN at the kiosk/admin: both dev servers are now
+bound to `0.0.0.0`, so:
+
+- Kiosk:   `http://<LAN-IP>:5173/`  (the candidate interview)
+- Admin:   `http://<LAN-IP>:5174/`
+- API:     `http://<LAN-IP>:4000/api/v1/...`
+
+LAN IP on Windows: `ipconfig` → look for `IPv4 Address`. On this machine it is
+`172.16.147.5` (Wi-Fi); WSL vEthernet shows a different address that is not reachable
+from other devices.
+
 Secrets are read server-side only and are never bundled into the browser.
 
 ## Ethical and legal note
