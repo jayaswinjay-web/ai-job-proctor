@@ -1,1 +1,48 @@
-{"PHRASES":{"GREETING":{"ta":"வணக்கம்! ராஜபாளையம் மில்ஸ் (ராம்கோ குழுமம்) நேர்காணலுக்கு வரவேற்கிறோம். நான் உங்கள் நேர்காணலை குரல் மூலம் நடத்துவேன். திரையைத் தொட வேண்டிய அவசியம் இல்லை.","en":"Welcome to Rajapalayam Mills (Ramco Group). I will conduct your interview by voice. There is no need to touch the screen."},"JOB_PROMPT":{"ta":"தற்போது கிடைக்கும் வேலை வாய்ப்புகள்: {list}. நீங்கள் விண்ணப்பிக்க விரும்பும் வேலை பெயரைச் சொல்லுங்கள்.","en":"The jobs available right now are: {list}. Please say the name of the job you want to apply for."},"JOB_CONFIRM":{"ta":"நீங்கள் {job} வேலைக்கு விண்ணப்பிக்கிறீர்கள். சரியா?","en":"You are applying for {job}. Is that correct?"},"LANGUAGE_PROMPT":{"ta":"உங்கள் நேர்காணல் மொழியைத் தேர்ந்தெடுக்கவும். கிடைக்கும் மொழிகள்: {list}. நீங்கள் விரும்பும் மொழியின் பெயரைச் சொல்லுங்கள்.","en":"Choose the language for your interview. The available languages are: {list}. Please say the language you would like."},"LANGUAGE_CONFIRM":{"ta":"நேர்காணல் {language} மொழியில் நடைபெறும். சரியா?","en":"The interview will be in {language}. Is that correct?"},"SPEAKER_TEST":{"ta":"இப்போது ஸ்பீக்கர் சோதனை செய்யலாம். நான் சொல்வது தெளிவாகக் கேட்கிறதா? ஆம் என்று சொல்லுங்கள்.","en":"Now let us test the speaker. Can you hear me clearly? Please say yes."},"MIC_TEST":{"ta":"இப்போது மைக்ரோஃபோன் சோதனை. உங்கள் பெயரைச் சொல்லுங்கள்.","en":"Now the microphone test. Please say your name."},"CONSENT":{"ta":"உங்கள் நேர்காணல் குரல் மூலம் நடைபெறும். உங்கள் பதில்கள் நேர்காணல் மதிப்பீட்டிற்காக பதிவு செய்யப்பட்டு சேமிக்கப்படும். நேர்காணலைத் தொடங்க நீங்கள் சம்மதிக்கிறீர்களா?","en":"Your interview is conducted by voice. Your answers will be recorded and stored for interview evaluation. Do you agree to continue?"},"READY":{"ta":"நன்றி. நேர்காணலைத் தொடங்குகிறோம்.","en":"Thank you. We will begin the interview."},"REPEAT_ACK":{"ta":"சரி, மீண்டும் சொல்கிறேன்.","en":"Of course, I will say it again."},"NOT_UNDERSTOOD":{"ta":"மன்னிக்கவும், எனக்கு புரியவில்லை. மீண்டும் சொல்லுங்கள்.","en":"Sorry, I did not understand. Please say that again."}}}
+{
+  "PHRASES": {
+    "GREETING": {
+      "ta": "வணக்கம்! ராஜபாளையம் மில்ஸ் (ராம்கோ குழுமம்) நேர்காணலுக்கு வரவேற்கிறோம். நான் உங்கள் நேர்காணலை குரல் மூலம் நடத்துவேன். திரையைத் தொட வேண்டிய அவசியம் இல்லை.",
+      "en": "Welcome to Rajapalayam Mills (Ramco Group). I will conduct your interview by voice. There is no need to touch the screen."
+    },
+    "JOB_PROMPT": {
+      "ta": "தற்போது கிடைக்கும் வேலை வாய்ப்புகள்: எண் ஒன்று - Delivery Worker, எண் இரண்டு - Factory Worker, எண் மூன்று - Security Guard. நீங்கள் விண்ணப்பிக்க விரும்பும் வேலை பெயரைச் சொல்லுங்கள், அல்லது எண்ணைச் சொல்லுங்கள்.",
+      "en": "The jobs available right now are: number one, Delivery Worker; number two, Factory Worker; number three, Security Guard. Please say the name of the job you want to apply for, or say the number."
+    },
+    "JOB_CONFIRM": {
+      "ta": "நீங்கள் {job} வேலைக்கு விண்ணப்பிக்கிறீர்கள். சரியா?",
+      "en": "You are applying for {job}. Is that correct?"
+    },
+    "LANGUAGE_PROMPT": {
+      "ta": "உங்கள் நேர்காணல் மொழியைத் தேர்ந்தெடுக்கவும். கிடைக்கும் மொழிகள்: {list}. நீங்கள் விரும்பும் மொழியின் பெயரைச் சொல்லுங்கள்.",
+      "en": "Choose the language for your interview. The available languages are: {list}. Please say the language you would like."
+    },
+    "LANGUAGE_CONFIRM": {
+      "ta": "நேர்காணல் {language} மொழியில் நடைபெறும். சரியா?",
+      "en": "The interview will be in {language}. Is that correct?"
+    },
+    "SPEAKER_TEST": {
+      "ta": "இப்போது ஸ்பீக்கர் சோதனை செய்யலாம். நான் சொல்வது தெளிவாகக் கேட்கிறதா? ஆம் என்று சொல்லுங்கள்.",
+      "en": "Now let us test the speaker. Can you hear me clearly? Please say yes."
+    },
+    "MIC_TEST": {
+      "ta": "இப்போது மைக்ரோஃபோன் சோதனை. உங்கள் பெயரைச் சொல்லுங்கள்.",
+      "en": "Now the microphone test. Please say your name."
+    },
+    "CONSENT": {
+      "ta": "உங்கள் நேர்காணல் குரல் மூலம் நடைபெறும். உங்கள் பதில்கள் வேலையின் காரணமாக பதிவு செய்யப்பட்டு சேமிக்கப்படும். தொடங்க சம்மதமா, அல்லது வேண்டாமா? சரி அல்லது இல்லை என்று சொல்லுங்கள்.",
+      "en": "Your interview is conducted by voice. Your answers will be recorded and stored for interview evaluation. Do you agree to continue?"
+    },
+    "READY": {
+      "ta": "நன்றி. நேர்காணலைத் தொடங்குகிறோம்.",
+      "en": "Thank you. We will begin the interview."
+    },
+    "REPEAT_ACK": {
+      "ta": "சரி, மீண்டும் சொல்கிறேன்.",
+      "en": "Of course, I will say it again."
+    },
+    "NOT_UNDERSTOOD": {
+      "ta": "மன்னிக்கவும், எனக்கு புரியவில்லை. மீண்டும் சொல்லுங்கள்.",
+      "en": "Sorry, I did not understand. Please say that again."
+    }
+  }
+}
