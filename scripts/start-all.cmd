@@ -78,7 +78,17 @@ if errorlevel 1 (
 )
 echo.
 
-echo [6/6] Voice agent (local LiveKit + Whisper)
+echo [6/7] Voice server (Whisper/Tamil LLaMA/Piper HTTP)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode PortUp -Port 8095 >nul 2>&1
+if errorlevel 1 (
+  start "proctor-voice" /min cmd /c "python scripts\local-voice-server.py > voice.log 2>&1"
+  echo       starting - local GPU inference on http://127.0.0.1:8095
+) else (
+  echo       already running - local inference live on :8095
+)
+echo.
+
+echo [7/7] Voice agent (local LiveKit + Whisper)
 powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode ProcRunning -Match "local-livekit-agent" >nul 2>&1
 if errorlevel 1 (
   start "proctor-agent" /min cmd /c "python scripts\local-livekit-agent.py dev > agent.log 2>&1"
@@ -95,6 +105,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode WaitPort -Port
 if errorlevel 1 echo       [!] Admin :5174 never came up - read admin.log
 powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode WaitPort -Port 5173 -TimeoutSeconds 150 >nul 2>&1
 if errorlevel 1 echo       [!] Kiosk :5173 never came up - read kiosk.log
+powershell -NoProfile -ExecutionPolicy Bypass -File "%LIB%" -Mode WaitPort -Port 8095 -TimeoutSeconds 150 >nul 2>&1
+if errorlevel 1 echo       [!] Voice server :8095 never came up - read voice.log
 
 echo.
 echo ============================================================
@@ -104,7 +116,7 @@ echo    Kiosk  http://localhost:5173   candidate interview
 echo    Admin  http://localhost:5174   recruiter console
 echo    API    http://localhost:4000/api/v1
 echo.
-echo    Logs: api.log  kiosk.log  admin.log  face.log  agent.log
+echo    Logs: api.log  kiosk.log  admin.log  face.log  voice.log  agent.log
 echo    To stop: close the minimized "proctor-*" windows in the taskbar.
 echo ============================================================
 
