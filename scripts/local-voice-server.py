@@ -185,7 +185,8 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(raw)
                 tmp_path = tmp.name
             try:
-                segments, info = model.transcribe(tmp_path, beam_size=1, vad_filter=True, language=lang)
+                # Caller (LiveKit VAD) already trimmed silence; re-filtering clips short utterances.
+                segments, info = model.transcribe(tmp_path, beam_size=1, vad_filter=False, language=lang)
                 seg_list = list(segments)
             finally:
                 try:
@@ -196,7 +197,7 @@ class Handler(BaseHTTPRequestHandler):
             # Raw int16 16kHz mono PCM -> float32 normalized array
             import numpy as np
             pcm = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
-            segments, info = model.transcribe(pcm, beam_size=1, vad_filter=True, language=lang)
+            segments, info = model.transcribe(pcm, beam_size=1, vad_filter=False, language=lang)
             seg_list = list(segments)
         duration = float(getattr(info, "duration", 0.0) or 0.0)
         detected = getattr(info, "language", None) or lang
