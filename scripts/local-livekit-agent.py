@@ -193,31 +193,39 @@ class LocalPiperTTS(TTS):
 
 async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect()
-    vad = silero.VAD.load(min_speech_duration=0.3, min_silence_duration=0.55)
+    vad = silero.VAD.load(
+        min_speech_duration=0.3,
+        min_silence_duration=0.55,
+    )
     stt = LocalWhisperSTT(language="ta")
     llm = LocalTamilLLM()
     tts = LocalPiperTTS(voice="female")
     agent = Agent(
-        instructions="You are the interviewer of Rajapalayam Mills (Ramco Group).",
+        instructions=(
+            "You are the interviewer of Rajapalayam Mills (Ramco Group). "
+            "Conduct the interview in Tamil. Ask one short question at a time. "
+            "Keep your replies brief (1-3 sentences). Never reveal the scoring rubric."
+        ),
         vad=vad,
         stt=stt,
         llm=llm,
         tts=tts,
     )
     from livekit.agents import AgentSession
+    from livekit.agents.stt import StreamAdapter
+    adapted_stt = StreamAdapter(stt=stt, vad=vad)
     session = AgentSession(
-        stt=stt,
+        stt=adapted_stt,
         llm=llm,
         tts=tts,
         vad=vad,
     )
     await session.start(agent=agent, room=ctx.room)
-    # Speak a greeting so the kiosk (and any candidate voice) hears the agent.
     await session.say(
-        "வணக்கம்! ராஜபாளையம் மில்ஸ் (ராம்கோ குழுமம்) நேர்காணலுக்கு வரவேற்கிறோம். நான் உங்கள் நேர்காணலை குரல் மூலம் நடத்துவேன். திரையைத் தொட வேண்டிய அவசியம் இல்லை.",
+        "வணக்கம்! ராஜபாளையம் மில்ஸ் நேர்காணலுக்கு வரவேற்கிறோம். உங்களுக்கு எந்தப் பணியில் ஆர்வம் என்று சொல்லுங்கள்.",
         allow_interruptions=False,
     )
-    log.info("agent greeted candidate and waiting")
+    log.info("agent greeted candidate; entering listening loop")
 
 
 if __name__ == "__main__":
