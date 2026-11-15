@@ -18,6 +18,28 @@ import logging
 import os
 from pathlib import Path
 
+
+def _load_repo_env() -> None:
+    repo_root = Path(__file__).resolve().parent.parent
+    env_path = repo_root / ".env"
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if value.startswith("\"") and value.endswith("\"") and len(value) >= 2:
+            value = value[1:-1]
+        if key.startswith("#") or not value:
+            continue
+        if key not in os.environ:
+            os.environ[key] = value
+
+
+_load_repo_env()
+
 from livekit import agents, rtc
 from livekit.agents import Agent, JobContext, WorkerOptions, cli
 from livekit.agents.llm import ChatContext, ChatMessage, LLM, LLMStream
