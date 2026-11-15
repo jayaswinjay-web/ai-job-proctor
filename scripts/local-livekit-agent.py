@@ -383,10 +383,15 @@ class LocalPiperTTS(TTS):
                     mime_type="audio/pcm",
                     stream=False,
                 )
+                from piper.config import SynthesisConfig
                 async with httpx.AsyncClient(timeout=120) as client:
                     r = await client.post(
                         f"{VOICE_SERVER}/synthesize",
-                        json={"text": self._input_text, "voice": self._tts._voice},
+                        json={
+                            "text": self._input_text,
+                            "voice": self._tts._voice,
+                            "volume": 0.55,  # lower far-end so AEC preserves the candidate's mic
+                        },
                     )
                     r.raise_for_status()
                     wav = base64.b64decode(r.json()["wav_base64"])

@@ -35,7 +35,7 @@ export function WelcomeVideo({ onFinished }: { onFinished: () => void }) {
     const video = videoRef.current;
     if (!video) return;
     video.muted = false;
-    video.volume = 1;
+    video.volume = 0.35;
     const result = video.play();
     if (result && typeof result.catch === 'function') {
       result.then(() => setBlocked(false)).catch(() => setBlocked(true));

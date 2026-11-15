@@ -274,9 +274,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         voice = payload.get("voice", "female")
         piper = get_piper(voice)
+        volume = float(payload.get("volume", 1.0) or 1.0)
+        try:
+            from piper.config import SynthesisConfig
+            cfg = SynthesisConfig(volume=volume)
+        except Exception:
+            cfg = None
         buffer = io.BytesIO()
         with wave.open(buffer, "wb") as wav:
-            piper.synthesize_wav(text, wav)
+            piper.synthesize_wav(text, wav, cfg)
         wav_bytes = buffer.getvalue()
         self._json(
             200,
