@@ -390,7 +390,7 @@ class LocalPiperTTS(TTS):
                         json={
                             "text": self._input_text,
                             "voice": self._tts._voice,
-                            "volume": 0.55,  # lower far-end so AEC preserves the candidate's mic
+                            "volume": 0.38,  # lower far-end so AEC preserves the candidate's mic
                         },
                     )
                     r.raise_for_status()
