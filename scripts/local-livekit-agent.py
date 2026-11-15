@@ -106,6 +106,13 @@ def normalize(value: str) -> str:
     return v.strip()
 
 
+def _similarity(a: str, b: str) -> float:
+    """Char-level similarity ratio; 1.0 = identical (SequenceMatcher, stdlib)."""
+    from difflib import SequenceMatcher
+
+    return SequenceMatcher(None, a, b).ratio()
+
+
 _LANGUAGE_ALIASES = {
     "en": ["english", "inglish", "angrezi", "anglam", "aangilam"],
     "hi": ["hindi", "hindhi", "हिन्दी", "हिंदी"],
@@ -169,7 +176,14 @@ def match_option(utterance: str, options: list[dict]):
             elif any(len(w) > 3 and w in text for w in needle.split()):
                 score = 3
             else:
-                score = 0
+                # Fallback: fuzzy character-level similarity for noisy ASR output,
+                # e.g. 'தமிழ்' heard as 'தாமி'. Only for needles of 4+ chars so
+                # short words do not swallow unrelated speech.
+                sim = _similarity(text, needle) if needle and len(needle) >= 4 else 0.0
+                if sim >= 0.55:
+                    score = sim * len(needle)
+                else:
+                    score = 0
             if score > 0 and (best is None or score > best[0]):
                 best = (score, option)
     return best[1] if best else None
@@ -251,18 +265,63 @@ class LocalWhisperSTT(STT):
         import base64 as _b64
 
         from livekit.agents.stt import SpeechData, SpeechEventType
+        import numpy as np
 
-        if hasattr(buffer, "data"):
-            raw = bytes(buffer.data)
-        elif hasattr(buffer, "__iter__"):
-            raw = b"".join(bytes(f.data) for f in buffer)
+        frames = buffer if isinstance(buffer, list) else [buffer]
+        from livekit.rtc import AudioFrame, AudioResampler, AudioResamplerQuality
+
+        arrays = []
+        sample_rate = None
+        num_channels = 1
+        raw_frames: list[AudioFrame] = []
+        for frame in frames:
+            data = getattr(frame, "data", None)
+            if data is None:
+                raw_frames.append(
+                    AudioFrame(data=bytes(frame), sample_rate=16000, num_channels=1,
+                               samples_per_channel=len(frame) // 2)
+                )
+                sample_rate = sample_rate or 16000
+                continue
+            sr = getattr(frame, "sample_rate", None) or 16000
+            ch = getattr(frame, "num_channels", 1)
+            if isinstance(data, memoryview):
+                data = data.tobytes()
+            else:
+                data = bytes(data)
+            pcm = np.frombuffer(data, dtype=np.int16)
+            if ch > 1:
+                pcm = pcm.reshape(-1, ch).mean(axis=1).astype(np.int16)
+                data = pcm.tobytes()
+                ch = 1
+            raw_frames.append(
+                AudioFrame(data=data, sample_rate=int(sr), num_channels=int(ch),
+                           samples_per_channel=len(pcm))
+            )
+            sample_rate = sample_rate or int(sr)
+
+        if sample_rate and sample_rate != 16000:
+            resampler = AudioResampler(
+                sample_rate, 16000,
+                num_channels=num_channels,
+                quality=AudioResamplerQuality.HIGH,
+            )
+            resampled: list[AudioFrame] = []
+            for frame in raw_frames:
+                resampled.extend(resampler.push(frame))
+            resampled.extend(resampler.flush())
+            pcm = np.concatenate(
+                [np.frombuffer(bytes(f.data), dtype=np.int16) for f in resampled]
+            ) if resampled else np.frombuffer(b"", dtype=np.int16)
         else:
-            raw = bytes(buffer)
+            pcm = np.concatenate(
+                [np.frombuffer(bytes(f.data), dtype=np.int16) for f in raw_frames]
+            ) if raw_frames else np.frombuffer(b"", dtype=np.int16)
 
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.post(
                 f"{VOICE_SERVER}/transcribe",
-                json={"audio_base64": _b64.b64encode(raw).decode("ascii"), "language": self._language},
+                json={"audio_base64": _b64.b64encode(pcm.tobytes()).decode("ascii"), "language": self._language},
             )
             r.raise_for_status()
             text = r.json().get("text", "")
