@@ -22,11 +22,13 @@ Source of truth: project prompt (mission, architecture, stack defaults, autonomy
 - Phase 5 — Hardening: load/chaos tests, security review, observability, runbook.
 
 ## Current status
-- Initial TS kiosk (LiveKit Cloud) committed + pushed to github.com/jayaswinjay-web/ai-job-proctor.
-- Phase 1 (self-hosted LiveKit + agent skeleton) committed + pushed (commit 1b6abd0):
-    - /infra: livekit-server (7880/7881) + redis + postgres on 5433; livekit.yaml fixed to pkg/config fields
-    - /agent: config, pipeline, main.py (agents 2.0 entrypoint + dev stubs), requirements.txt
-    - /client/web/index.html: minimal livekit-client web client
+
+- **Local offline voice pipeline end-to-end verified (2026-11-15)**:
+    - Local LiveKit Server at ws://localhost:7880 (docker, infra-livekit-1)
+    - Python agent registered as voicehire-interview, dispatched by kiosk, greets candidate via local Tamil LLaMA 7B + Piper TTS — no cloud voice service used.
+    - Kiosk bootstrap returns livekitUrl=ws://localhost:7880, agentName=voicehire-interview.
+- Initial TS kiosk (LiveKit Cloud) committed + pushed.
+- Phase 1 (self-hosted LiveKit + agent skeleton) committed + pushed (commit 1b6abd0).
 - Phase 1 acceptance p50 mouth-to-ear < 1.2s is READY:
     - Python 3.12.10 installed via winget; agents 1.8.8 + plugins 1.8.8 verified
     - LiveKit server + agent worker verified self-hosted connection
