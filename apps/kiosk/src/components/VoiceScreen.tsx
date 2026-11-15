@@ -5,7 +5,7 @@ import type { VoiceAgentController } from '../hooks/useVoiceAgent.js';
 /**
  * The hands-free interview screen.
  *
- * While the interview runs over LiveKit Cloud the screen is only visual reassurance: it
+ * While the interview runs over the local LiveKit Server the screen is only visual reassurance: it
  * shows that the AI is listening or speaking and tells the candidate not to touch
  * anything. There are deliberately no buttons — the whole flow is conducted by voice
  * (spec §24).

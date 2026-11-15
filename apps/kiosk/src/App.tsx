@@ -140,7 +140,7 @@ export function App() {
           <style>{kioskStyles}</style>
           {introOverlay}
           {kiosk.demo && <div className="k-demo">DEMO MODE — SAMPLE DATA</div>}
-          <ConfigurationErrorScreen message="Voice AI service is not configured. Please configure LiveKit Cloud and the required AI provider credentials." />
+          <ConfigurationErrorScreen message="Voice AI service is not running. Please ask the administrator to start the local voice services." />
         </>
       );
     }

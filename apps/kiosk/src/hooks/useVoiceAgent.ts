@@ -3,7 +3,7 @@ import { kioskApi, KioskError, type BootstrapPayload } from '../lib/api.js';
 import { connectVoiceRoom, type VoiceBinding, type VoiceConnection, type VoiceStatus } from '../lib/voice.js';
 
 /**
- * Drives the LiveKit Cloud thin-client connection for the voice-first kiosk.
+ * Drives the local LiveKit Server thin-client connection for the voice-first kiosk.
  *
  * The kiosk itself decides nothing about the conversation: it fetches a short-lived token,
  * joins the room, publishes the microphone and plays the agent. Everything else —
@@ -22,7 +22,7 @@ export interface VoiceAgentController {
 }
 
 const NOT_CONFIGURED_MESSAGE =
-  'Voice AI service is not configured. Please configure LiveKit Cloud and the required AI provider credentials.';
+  'Voice AI service is not running. Please ask the administrator to start the local voice services.';
 
 export function useVoiceAgent(bootstrap: BootstrapPayload | null, enabled = true): VoiceAgentController {
   const [status, setStatus] = useState<VoiceStatus>('idle');

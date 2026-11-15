@@ -4,9 +4,11 @@ Serves on http://localhost:8095
 
 Endpoints
     GET  /health                            liveness
+    OPTIONS *                               204 (used by API health checks)
     POST /transcribe  {audio_base64, language}   PCM/WAV base64 -> text (faster-whisper, CUDA)
     POST /generate    {messages}                 chat-ish turn via Tamil LLaMA (CUDA)
     POST /synthesize  {text, voice}              text -> WAV base64 (Piper Tamil)
+    POST /v1/audio/transcriptions               OpenAI-compatible verbose_json (for STT_PROVIDER=whisper-http)
 
 No network access is required at runtime; all models live under F:/models and F:/voice.
 """
@@ -118,7 +120,23 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/health":
             self._json(200, {"status": "ok", "models": ["whisper", "tamil-llama", "piper"]})
             return
+        if self.path == "/v1/models":
+            self._json(200, {
+                "object": "list",
+                "data": [
+                    {"id": Path(LLAMA_GGUF).stem, "object": "model", "owned_by": "local"},
+                    {"id": Path(WHISPER_MODEL).name, "object": "model", "owned_by": "local"},
+                ],
+            })
+            return
         self._error(404, "not found")
+
+    def do_OPTIONS(self) -> None:
+        # The API's whisper-http provider probes the endpoint with OPTIONS before use.
+        self.send_response(204)
+        self.send_header("allow", "GET, POST, OPTIONS")
+        self.send_header("content-length", "0")
+        self.end_headers()
 
     def do_POST(self) -> None:
         body = self._post_body()
@@ -130,6 +148,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if self.path == "/transcribe":
             self._transcribe(payload)
+        elif self.path == "/v1/audio/transcriptions":
+            self._transcriptions(payload)
         elif self.path == "/generate":
             self._generate(payload)
         elif self.path == "/synthesize":
@@ -137,37 +157,94 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._error(404, "not found")
 
+    def _whisper_segments(self, raw: bytes, language: str | None):
+        """Run faster-whisper over uploaded bytes.
+
+        Handles RIFF/WAVE, EBML (.webm), OggS (.ogg), MP3 (ID3/frame sync), FLAC,
+        and raw int16 16kHz mono PCM. Returns (segments_list, language, duration_s).
+        """
+        model = get_whisper()
+        lang = (language or "ta").strip() or "ta"
+
+        def _detect_suffix(b: bytes) -> str | None:
+            if b[:4] == b"RIFF" and b"WAVE" in b[:12]:
+                return ".wav"
+            if b[:4] == b"\x1a\x45\xdf\xa3":
+                return ".webm"
+            if b[:4] == b"OggS":
+                return ".ogg"
+            if b[:3] == b"ID3" or b[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"):
+                return ".mp3"
+            if b[:4] == b"fLaC":
+                return ".flac"
+            return None
+
+        suffix = _detect_suffix(raw)
+        if suffix is not None:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(raw)
+                tmp_path = tmp.name
+            try:
+                segments, info = model.transcribe(tmp_path, beam_size=1, vad_filter=True, language=lang)
+                seg_list = list(segments)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        else:
+            # Raw int16 16kHz mono PCM -> float32 normalized array
+            import numpy as np
+            pcm = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+            segments, info = model.transcribe(pcm, beam_size=1, vad_filter=True, language=lang)
+            seg_list = list(segments)
+        duration = float(getattr(info, "duration", 0.0) or 0.0)
+        detected = getattr(info, "language", None) or lang
+        return seg_list, detected, duration
+
     def _transcribe(self, payload: dict) -> None:
         audio_b64 = payload.get("audio_base64")
         if not audio_b64:
             self._error(400, "audio_base64 required")
             return
         raw = base64.b64decode(audio_b64)
-        model = get_whisper()
         try:
-            # Detect RIFF container vs raw int16 PCM (16kHz mono).
-            if raw[:4] == b"RIFF" and b"WAVE" in raw[:12]:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-                    tmp.write(raw)
-                    tmp_path = tmp.name
-                try:
-                    segments, _ = model.transcribe(tmp_path, beam_size=1, vad_filter=True)
-                    text = " ".join(s.text for s in segments).strip()
-                finally:
-                    try:
-                        os.unlink(tmp_path)
-                    except OSError:
-                        pass
-            else:
-                # Raw int16 16kHz mono PCM -> float32 normalized array
-                import numpy as np
-                pcm = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
-                segments, _ = model.transcribe(pcm, beam_size=1, vad_filter=True)
-                text = " ".join(s.text for s in segments).strip()
+            seg_list, _detected, _duration = self._whisper_segments(raw, payload.get("language"))
+            text = " ".join(s.text for s in seg_list).strip()
             self._json(200, {"text": text})
         except Exception:  # noqa: BLE001
             log.exception("transcribe failed")
             self._error(500, "transcribe failed")
+
+    def _transcriptions(self, payload: dict) -> None:
+        """OpenAI-compatible Whisper verbose_json shape (for STT_PROVIDER=whisper-http)."""
+        audio_b64 = payload.get("audio")
+        if not audio_b64:
+            self._error(400, "audio (base64) required")
+            return
+        raw = base64.b64decode(audio_b64)
+        try:
+            language = payload.get("language")
+            seg_list, detected, duration = self._whisper_segments(raw, language)
+            segments = [
+                {
+                    "start": float(s.start),
+                    "end": float(s.end),
+                    "text": s.text,
+                    "avg_logprob": float(getattr(s, "avg_logprob", -0.2) or -0.2),
+                }
+                for s in seg_list
+            ]
+            text = " ".join(s["text"] for s in segments).strip()
+            self._json(200, {
+                "text": text,
+                "language": detected,
+                "duration": duration,
+                "segments": segments,
+            })
+        except Exception:  # noqa: BLE001
+            log.exception("transcription failed")
+            self._error(500, "transcription failed")
 
     def _generate(self, payload: dict) -> None:
         messages = payload.get("messages")

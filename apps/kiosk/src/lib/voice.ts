@@ -1,5 +1,5 @@
 /**
- * LiveKit Cloud thin-client transport.
+ * Local LiveKit Server thin-client transport (ws://localhost:7880).
  *
  * The production interview runs entirely in the cloud: this kiosk only publishes its
  * microphone and plays back the agent's audio. No STT, TTS, LLM or model inference ever
@@ -29,7 +29,7 @@ export interface VoiceConnection {
 }
 
 /**
- * Joins a LiveKit Cloud room and wires up microphone publishing and agent playback.
+ * Joins the local LiveKit room and wires up microphone publishing and agent playback.
  *
  * Audio tracks are attached to hidden elements that are appended to the document. This is
  * the only way the browser will actually route the remote audio to the speaker; there is

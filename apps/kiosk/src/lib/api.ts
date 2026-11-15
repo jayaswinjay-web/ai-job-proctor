@@ -82,7 +82,7 @@ export interface BootstrapPayload {
   /**
    * Voice transport the kiosk should use.
    *
-   * `configured` is false when LiveKit Cloud or the agent key is missing; the kiosk then
+   * `configured` is false when the local LiveKit Server or the agent key is missing; the kiosk then
    * shows an explicit configuration error rather than pretending to work (spec §29).
    */
   voiceAi: {

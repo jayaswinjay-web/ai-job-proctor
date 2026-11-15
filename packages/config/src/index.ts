@@ -163,13 +163,14 @@ export const envSchema = z.object({
   /**
    * Voice transport mode.
    *
-   *  - `livekit` (default): the interview runs over LiveKit Cloud with a cloud AI
-   *    agent. The kiosk is a thin audio terminal; it never runs STT/LLM/TTS itself.
+    *  - `livekit` (default): the interview runs over the local LiveKit Server with a
+    *    local AI agent (faster-whisper + Tamil LLaMA + Piper). The kiosk is a thin audio terminal;
+    *    it never runs STT/LLM/TTS itself.
    *  - `browser`: the legacy in-browser speech pipeline, for development only. It must
    *    be selected explicitly and is not the production interview path.
    */
   VOICE_MODE: z.enum(['livekit', 'browser']).default('livekit'),
-  /** LiveKit Cloud project URL, e.g. wss://your-project.livekit.cloud */
+  /** Local LiveKit Server URL. For the offline stack use ws://localhost:7880. */
   LIVEKIT_URL: z.string().default(''),
   /** Server-side only. Never exposed to the browser; used solely to sign access tokens. */
   LIVEKIT_API_KEY: z.string().default(''),
