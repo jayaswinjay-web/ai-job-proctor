@@ -248,8 +248,17 @@ ABSOLUTE RULES — violating any of these invalidates your output:
    commentary about the person.
 
 OUTPUT
-Return only the JSON object matching the schema. Set evaluationReason to one short factual
-sentence describing the EVIDENCE that produced the score.`;
+Return only one JSON object in the exact shape below. No markdown fences, no text before or after.
+{
+  "rawScore": <number>,
+  "evaluationReason": <one short factual sentence describing the EVIDENCE>,
+  "strengths": [<string>],
+  "concerns": [<string>],
+  "missingCriteria": [<string>],
+  "criterionScores": [{"label": <string>, "points": <number>, "reasoning": <string>, "hitKeywords": [<string>]}],
+  "confidence": <number between 0 and 1>,
+  "notes": <string>
+}`;
 
 export class LlmEvaluationProvider implements EvaluationProvider {
   readonly name = 'llm';

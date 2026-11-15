@@ -5,7 +5,7 @@
   embedding PowerShell inside cmd's quoting. Every mode reports through the exit code so
   the batch file can branch with `if errorlevel 1`:
 
-    PortUp      0 = a TCP connection to -Port was accepted
+    PortUp      0 = a TCP connection to -Port was accepted (tries 127.0.0.1 then ::1)
     WaitPort    0 = the port came up within -TimeoutSeconds, 1 = it timed out
     ProcRunning 0 = a node.exe process whose command line matches -Match is alive
 
@@ -25,15 +25,19 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Test-TcpPort([int]$Port) {
-  $client = New-Object System.Net.Sockets.TcpClient
-  try {
-    $client.Connect('127.0.0.1', $Port)
-    return $client.Connected
-  } catch {
-    return $false
-  } finally {
-    $client.Dispose()
+  # Try IPv4 loopback first, then the hostname (covers ::1-only bindings).
+  foreach ($hostName in @('127.0.0.1', 'localhost')) {
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+      $connect = $client.ConnectAsync($hostName, $Port)
+      if ($connect.Wait(1500) -and $client.Connected) { return $true }
+    } catch {
+      # connection refused / unavailable — try the next host
+    } finally {
+      $client.Dispose()
+    }
   }
+  return $false
 }
 
 function Wait-TcpPort([int]$Port, [int]$TimeoutSeconds) {
@@ -42,7 +46,6 @@ function Wait-TcpPort([int]$Port, [int]$TimeoutSeconds) {
     if (Test-TcpPort $Port) { return $true }
     Start-Sleep -Milliseconds 500
   }
-  # One last check: the deadline may have slipped a few hundred milliseconds.
   return (Test-TcpPort $Port)
 }
 

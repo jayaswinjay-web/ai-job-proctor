@@ -696,7 +696,8 @@ export class InterviewEngine {
     if (next.kind === 'COMPLETE') return this.complete(state, result);
 
     const targetState = stateForStep(next);
-    if (!canTransition(state.state, targetState)) {
+    // Same-state advancement is an idempotent step within a stage, not a violation.
+    if (state.state !== targetState && !canTransition(state.state, targetState)) {
       this.deps.logger.error('state_transition_rejected', { from: state.state, to: targetState });
     }
     state.state = targetState;
