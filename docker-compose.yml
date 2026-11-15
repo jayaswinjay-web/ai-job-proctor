@@ -4,7 +4,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: proctor-postgres
-    restart: unless-stopped
+    restart: "no"
     environment:
       POSTGRES_USER: proctor
       POSTGRES_PASSWORD: proctor_dev_password
@@ -25,7 +25,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: proctor-minio
-    restart: unless-stopped
+    restart: "no"
     profiles: ['storage']
     command: server /data --console-address ":9001"
     environment:
