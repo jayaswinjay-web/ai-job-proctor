@@ -9,3 +9,6 @@
 | 5 | Whisper-family streaming STT fine-tuned for Indian English/Indic | Prompt stack default; Indic capability. |
 | 6 | Streaming TTS fine-tuned on licensed Indian voice data (male + female) | Prompt stack default; DPDP Act 2023 consent provenance in /voice/PROVENANCE.md. |
 | 7 | Postgres + Redis + pgvector (or Qdrant) | Prompt stack default. |
+| 8 | Desktop launcher starts Postgres, API, kiosk, admin, camera and two Python local voice services | One-click start; verified end-to-end 2026-11-15. Local voice server (:8095) is required before the local agent (agent registration on ws://localhost:7880) can be dispatched. The local agent reads repo `.env` itself so the desktop icon's `cmd` environment doesn't need to carry `LIVEKIT_URL` explicitly. |
+| 9 | Kiosk points to local LiveKit Server; voice agent is Python local agent (not TS/LiveKit Cloud agent) | Prompt requires fully-offline operation; the rebranding is `voicehire-interview` in both the local Gemma/LiteLLM backup or Python local agent. |
+| 10 | `start-all-lib.ps1` probes both `InterNetwork` and `InterNetworkV6` (Vite binds `::1` , API binds `0.0.0.0`) | Prevents the "Admin/Kiosk never came up" launcher bug observed 2026-11-15. |
