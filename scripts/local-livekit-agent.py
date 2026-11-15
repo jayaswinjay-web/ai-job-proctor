@@ -42,7 +42,7 @@ _load_repo_env()
 
 from livekit import agents, rtc
 from livekit.agents import Agent, JobContext, WorkerOptions, cli
-from livekit.agents.llm import ChatContext, ChatMessage, LLM, LLMStream
+from livekit.agents.llm import ChatContext, ChatMessage, ChatChunk, ChoiceDelta, LLM, LLMStream
 from livekit.agents.stt import STT, SpeechEvent
 from livekit.agents.tts import TTS, ChunkedStream, SynthesizedAudio
 from livekit.plugins import silero
@@ -111,35 +111,39 @@ class LocalTamilLLM(LLM):
         super().__init__()
 
     def chat(self, *, chat_ctx: ChatContext, tools=None, conn_options=None, parallel_tool_calls=None, tool_choice=None, extra_kwargs=None):
-        import httpx
-
         async def _call():
+            import httpx
+
             transcript = "\n".join(
                 f"{m.role}: {m.text_content}" for m in chat_ctx.items if isinstance(m, ChatMessage)
             )
-            r = httpx.post(
-                f"{VOICE_SERVER}/generate",
-                json={"messages": [{"role": "user", "content": transcript}], "max_tokens": 200},
-                timeout=120,
-            )
-            r.raise_for_status()
-            return r.json().get("text", "")
+            async with httpx.AsyncClient(timeout=120) as client:
+                r = await client.post(
+                    f"{VOICE_SERVER}/generate",
+                    json={"messages": [{"role": "user", "content": transcript}], "max_tokens": 200},
+                )
+                r.raise_for_status()
+                return r.json().get("text", "")
 
         class _Stream(LLMStream):
             async def _run(self) -> None:
+                import uuid
+
                 text = await _call()
                 if text:
                     self._event_ch.send_nowait(
-                        getattr(__import__("livekit.agents.llm", fromlist=["ChatChunk"]), "ChatChunk")(
-                            delta=getattr(__import__("livekit.agents.llm", fromlist=["ChoiceDelta"]), "ChoiceDelta")(
+                        ChatChunk(
+                            id=f"local-tamil-llama-{uuid.uuid4().hex[:12]}",
+                            delta=ChoiceDelta(
                                 role="assistant", content=text
                             ),
                             usage=None,
                         )
                     )
                 self._event_ch.send_nowait(
-                    getattr(__import__("livekit.agents.llm", fromlist=["ChatChunk"]), "ChatChunk")(
-                        delta=getattr(__import__("livekit.agents.llm", fromlist=["ChoiceDelta"]), "ChoiceDelta")(
+                    ChatChunk(
+                        id=f"local-tamil-llama-{uuid.uuid4().hex[:12]}",
+                        delta=ChoiceDelta(
                             role="assistant", content=None, finish_reason="stop"
                         ),
                         usage=None,
@@ -163,10 +167,10 @@ class LocalPiperTTS(TTS):
         self._voice = voice
 
     def synthesize(self, text: str, *, conn_options=None) -> ChunkedStream:
-        import httpx
-
         class _Chunk(ChunkedStream):
             async def _run(self, output_emitter) -> None:
+                import httpx
+
                 request_id = f"local-piper-{abs(hash(self._input_text))}"
                 output_emitter.initialize(
                     request_id=request_id,
@@ -176,13 +180,13 @@ class LocalPiperTTS(TTS):
                     stream=False,
                 )
 
-                r = httpx.post(
-                    f"{VOICE_SERVER}/synthesize",
-                    json={"text": self._input_text, "voice": self._tts._voice},
-                    timeout=120,
-                )
-                r.raise_for_status()
-                wav = base64.b64decode(r.json()["wav_base64"])
+                async with httpx.AsyncClient(timeout=120) as client:
+                    r = await client.post(
+                        f"{VOICE_SERVER}/synthesize",
+                        json={"text": self._input_text, "voice": self._tts._voice},
+                    )
+                    r.raise_for_status()
+                    wav = base64.b64decode(r.json()["wav_base64"])
                 # Piper outputs a WAV container; for PCM-supported emitter push raw bytes.
                 # Re-wrap as raw PCM: strip the 44-byte WAV header.
                 pcm = wav[44:] if wav[:4] == b"RIFF" else wav
