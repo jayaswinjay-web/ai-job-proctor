@@ -210,6 +210,11 @@ async def entrypoint(ctx: JobContext) -> None:
         stt=stt,
         llm=llm,
         tts=tts,
+        # Never touch the LiveKit cloud turn/interruption detectors — offline stack.
+        turn_handling={
+            "interruption": {"mode": "vad"},
+            "turn_detection": "vad",
+        },
     )
     from livekit.agents import AgentSession
     from livekit.agents.stt import StreamAdapter
@@ -219,6 +224,10 @@ async def entrypoint(ctx: JobContext) -> None:
         llm=llm,
         tts=tts,
         vad=vad,
+        turn_handling={
+            "interruption": {"mode": "vad"},
+            "turn_detection": "vad",
+        },
     )
     await session.start(agent=agent, room=ctx.room)
     await session.say(
