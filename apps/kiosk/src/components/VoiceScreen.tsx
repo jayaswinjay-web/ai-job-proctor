@@ -45,6 +45,33 @@ export function VoiceScreen({ voice }: { voice: VoiceAgentController }) {
           {statusLine}
         </p>
 
+        {/* Explicit "your turn" cue with a high-visibility pulsing ring, so a candidate
+            standing in front of the kiosk never speaks into dead air thinking it is their
+            turn when the agent is mid-sentence. */}
+        {!connecting && !reconnecting && (
+          <div
+            className={voice.agentSpeaking ? 'k-your-turn-block' : 'k-your-turn-active'}
+            aria-live="polite"
+            style={{
+              borderRadius: 18,
+              padding: '14px 28px',
+              background: voice.agentSpeaking ? 'rgba(255,255,255,0.06)' : 'rgba(46, 160, 67, 0.25)',
+              border: voice.agentSpeaking ? '1px solid rgba(255,255,255,0.2)' : '2px solid #2ea043',
+              color: voice.agentSpeaking ? 'rgba(255,255,255,0.55)' : '#6ee7a2',
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: 0.4,
+              textAlign: 'center',
+              minWidth: 280,
+              transition: 'all 180ms ease',
+            }}
+          >
+            {voice.agentSpeaking
+              ? 'AI பேசுகிறது — காத்திருங்கள்'
+              : 'இப்போது பேசுங்கள் · आप अब बोलें'}
+          </div>
+        )}
+
         <Dots active={!connecting && !reconnecting} speaking={voice.agentSpeaking} />
 
         <p className="k-caption">திரையைத் தொட வேண்டாம்</p>

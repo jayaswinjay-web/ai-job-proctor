@@ -44,7 +44,7 @@ export function WelcomeVideo({ onFinished }: { onFinished: () => void }) {
 
   useEffect(() => {
     // Safety net so the kiosk can never get stuck on the video screen.
-    armFallback(60000);
+    armFallback(12000);
     startPlayback();
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -54,6 +54,11 @@ export function WelcomeVideo({ onFinished }: { onFinished: () => void }) {
 
   return (
     <div
+      className="k-screen"
+      onClick={finish}
+      onTouchStart={finish}
+      role="button"
+      aria-label="Tap anywhere to skip the introduction"
       style={{
         position: 'fixed',
         top: 0,
@@ -65,6 +70,7 @@ export function WelcomeVideo({ onFinished }: { onFinished: () => void }) {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 9999,
+        cursor: 'pointer',
       }}
     >
       <video

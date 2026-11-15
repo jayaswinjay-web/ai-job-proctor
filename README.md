@@ -115,6 +115,18 @@ Steps:
 
 ### What to expect when you try it (voice)
 
+The kiosk shows a high-visibility panel at all times:
+
+| During these moments | Panel says |
+|---|---|
+| Agent is greeting / asking a question | AI is speaking (wait) |
+| Agent is waiting for your answer | Speak now |
+| Connecting / reconnecting | Connecting |
+
+The intro video launches automatically; tap anywhere to skip it. The kiosk never stays on the video for longer than 12 seconds.
+
+> Pitch readiness rule: the face gate arms, the mic is hot the moment the interview screen shows. There is no waiting period between screens.
+
 The local voice agent (`scripts/local-livekit-agent.py`) conducts the interview itself:
 it greets the candidate, asks job and language by voice (scripted Tamil-first copy),
 takes consent, and then works through the backend-driven question plan (BASIC_DETAILS
