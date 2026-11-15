@@ -25,14 +25,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Test-TcpPort([int]$Port) {
-  # Try IPv4 loopback first, then the hostname (covers ::1-only bindings).
-  foreach ($hostName in @('127.0.0.1', 'localhost')) {
-    $client = New-Object System.Net.Sockets.TcpClient
+  # Try both address families: Vite (5173/5174) binds ::1, the API (4000) binds 0.0.0.0.
+  foreach ($family in @('InterNetwork', 'InterNetworkV6')) {
+    $client = New-Object System.Net.Sockets.TcpClient($family)
     try {
-      $connect = $client.ConnectAsync($hostName, $Port)
+      $address = if ($family -eq 'InterNetwork') { [System.Net.IPAddress]::Parse('127.0.0.1') } else { [System.Net.IPAddress]::Parse('::1') }
+      $connect = $client.ConnectAsync($address, $Port)
       if ($connect.Wait(1500) -and $client.Connected) { return $true }
     } catch {
-      # connection refused / unavailable — try the next host
+      # connection refused / unavailable - try the next family
     } finally {
       $client.Dispose()
     }
